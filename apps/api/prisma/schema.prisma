@@ -1,0 +1,111 @@
+// Apex Pay — Prisma schema
+// Domain models are added incrementally, phase by phase, per the implementation plan
+// (C:\Users\emmanuel\.claude\plans\this-all-is-the-humming-gizmo.md, section 3).
+// This phase (Auth & Identity) adds: User, KycRecord, OtpCode, RefreshToken.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  SUPPORT
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING_KYC
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OtpPurpose {
+  REGISTER
+  LOGIN_STEP_UP
+  PIN_RESET
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  phone              String    @unique
+  phoneVerifiedAt    DateTime?
+  fullName           String
+  pinHash            String
+  referralCode       String    @unique
+  referredByUserId   String?
+  referredBy         User?     @relation("Referrals", fields: [referredByUserId], references: [id])
+  referrals          User[]    @relation("Referrals")
+  role               UserRole   @default(USER)
+  status             UserStatus @default(PENDING_KYC)
+  kycStatus          KycStatus  @default(NOT_SUBMITTED)
+  payoutBankDetails  Json?
+  deviceFingerprints Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lastLoginAt        DateTime?
+
+  kycRecords    KycRecord[]
+  refreshTokens RefreshToken[]
+
+  @@index([status])
+}
+
+model KycRecord {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  idType            String
+  idNumberEncrypted String
+  idDocumentKey     String?
+  selfieKey         String?
+  status            KycStatus @default(PENDING)
+  reviewedByAdminId String?
+  reviewedAt        DateTime?
+  rejectionReason   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model OtpCode {
+  id           String     @id @default(uuid())
+  phone        String
+  purpose      OtpPurpose
+  codeHash     String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int        @default(0)
+  ipAddress    String?
+  createdAt    DateTime   @default(now())
+
+  @@index([phone, purpose])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  tokenHash  String    @unique
+  deviceInfo String?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  @@index([userId])
+}
