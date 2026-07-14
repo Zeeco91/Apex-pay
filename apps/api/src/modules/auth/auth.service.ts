@@ -4,8 +4,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import type { OtpPurpose, User } from '@prisma/client';
-import { UsersService } from '../users/users.service';
+import type { OtpPurpose } from '@prisma/client';
+import {
+  UsersService,
+  toPublicUser,
+  type PublicUser,
+} from '../users/users.service';
 import { OtpService } from './otp.service';
 import { TokenService, type IssuedTokens } from './token.service';
 import { normalizePhoneOrThrow } from '../../common/phone/phone.util';
@@ -17,7 +21,7 @@ export interface RequestMeta {
   deviceInfo?: string;
 }
 
-export type PublicUser = Omit<User, 'pinHash' | 'deviceFingerprints'>;
+export type { PublicUser };
 
 @Injectable()
 export class AuthService {
@@ -164,24 +168,4 @@ export class AuthService {
     // Force re-login everywhere after a security-sensitive PIN reset.
     await this.tokenService.revokeAllForUser(user.id);
   }
-}
-
-function toPublicUser(user: User): PublicUser {
-  // Explicit allow-list rather than destructuring-out pinHash — if a future sensitive
-  // field is added to User, it has to be deliberately added here to reach the client.
-  return {
-    id: user.id,
-    phone: user.phone,
-    phoneVerifiedAt: user.phoneVerifiedAt,
-    fullName: user.fullName,
-    referralCode: user.referralCode,
-    referredByUserId: user.referredByUserId,
-    role: user.role,
-    status: user.status,
-    kycStatus: user.kycStatus,
-    payoutBankDetails: user.payoutBankDetails,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-    lastLoginAt: user.lastLoginAt,
-  };
 }

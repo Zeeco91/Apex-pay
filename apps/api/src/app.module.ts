@@ -10,6 +10,9 @@ import { SmsModule } from './common/sms/sms.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { KycModule } from './modules/kyc/kyc.module';
+import { LevelsModule } from './modules/levels/levels.module';
+import { QueueModule } from './modules/queue/queue.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { KycModule } from './modules/kyc/kyc.module';
     UsersModule,
     AuthModule,
     KycModule,
+    LevelsModule,
+    QueueModule,
+    TransactionsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

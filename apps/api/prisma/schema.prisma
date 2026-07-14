@@ -1,7 +1,10 @@
 // Apex Pay — Prisma schema
 // Domain models are added incrementally, phase by phase, per the implementation plan
 // (C:\Users\emmanuel\.claude\plans\this-all-is-the-humming-gizmo.md, section 3).
-// This phase (Auth & Identity) adds: User, KycRecord, OtpCode, RefreshToken.
+// Phase 3 (Auth & Identity) added: User, KycRecord, OtpCode, RefreshToken.
+// Phase 4 (Levels & Dashboard skeleton) added: Level.
+// Phase 5 (Queue & Matching Engine) added: QueueEntry, Transaction.
+// Phase 6 (Pooled Payment Flow) adds: TreasuryLedgerEntry, TreasuryBalance.
 
 generator client {
   provider = "prisma-client-js"
@@ -39,6 +42,48 @@ enum OtpPurpose {
   PIN_RESET
 }
 
+enum QueueEntryStatus {
+  PENDING_JOIN_PAYMENT
+  WAITING_FOR_PAYOUT
+  MATCHED_AS_PAYEE
+  COMPLETED
+  CANCELLED
+  ADMIN_HOLD
+}
+
+enum TransactionStatus {
+  AWAITING_PAYER_PROOF
+  PROOF_SUBMITTED
+  PRINCIPAL_RECEIVED
+  PENDING_DISBURSEMENT
+  DISBURSED
+  CONFIRMED
+  DISPUTED
+  ADMIN_RESOLVED_CONFIRMED
+  ADMIN_RESOLVED_REJECTED
+  CANCELLED
+}
+
+enum MatchType {
+  AUTOMATIC_FIFO
+  MANUAL_ADMIN
+}
+
+// Full documented shape (plan §3) declared now even though phase 6 only ever writes
+// PRINCIPAL_COLLECTED / FEE_COLLECTED / DISBURSED — the FEE_ALLOCATED_* and *_PAID types are
+// written starting in the Referral Program phase (plan §9 step 7) once FeePool exists.
+enum TreasuryEntryType {
+  PRINCIPAL_COLLECTED
+  DISBURSED
+  FEE_COLLECTED
+  FEE_ALLOCATED_REFERRAL_POOL
+  FEE_ALLOCATED_INCENTIVE_POOL
+  FEE_ALLOCATED_PLATFORM_REVENUE
+  REFERRAL_BONUS_PAID
+  LEVEL_INCENTIVE_BONUS_PAID
+  PLATFORM_REVENUE_WITHDRAWN
+}
+
 model User {
   id                 String    @id @default(uuid())
   phone              String    @unique
@@ -60,6 +105,10 @@ model User {
 
   kycRecords    KycRecord[]
   refreshTokens RefreshToken[]
+  queueEntries  QueueEntry[]
+
+  transactionsAsPayer Transaction[] @relation("TransactionsAsPayer")
+  transactionsAsPayee Transaction[] @relation("TransactionsAsPayee")
 
   @@index([status])
 }
@@ -108,4 +157,148 @@ model RefreshToken {
   revokedAt  DateTime?
 
   @@index([userId])
+}
+
+// Contribution tiers. Rows are seeded/managed by an operator today (prisma/seed.ts);
+// an admin CRUD surface over this table is planned for the Admin Panel Core phase (plan §9 step 8).
+// The three *PercentOfFee fields must sum to 100 for a given row — enforced in LevelsService,
+// not the DB, since Postgres has no portable "sum of sibling columns" constraint.
+model Level {
+  id                                   String   @id @default(uuid())
+  name                                 String
+  contributionAmount                   Int
+  feePercent                           Float    @default(5)
+  referralPoolAllocationPercentOfFee   Float
+  incentivePoolAllocationPercentOfFee  Float
+  platformRevenuePercentOfFee          Float
+  incentiveBonusRateOfPrincipal        Float
+  stalledThresholdDays                 Int      @default(14)
+  isActive                             Boolean  @default(true)
+  sortOrder                            Int      @unique
+  createdAt                            DateTime @default(now())
+  updatedAt                            DateTime @updatedAt
+
+  queueEntries QueueEntry[]
+  transactions Transaction[]
+
+  @@index([isActive, sortOrder])
+}
+
+// One row per member currently (or previously) waiting in a level's FIFO payout queue.
+// See QueueService for the join/match/cancel state machine (plan §4).
+model QueueEntry {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  levelId       String
+  level         Level            @relation(fields: [levelId], references: [id])
+  queueSequence Int              @default(autoincrement())
+  status        QueueEntryStatus @default(WAITING_FOR_PAYOUT)
+
+  // Denormalized for fast lookup in either direction — kept in sync by QueueService inside the
+  // same DB transaction that creates the Transaction. Not FK-enforced: the authoritative
+  // relation lives on Transaction.payerQueueEntryId / payeeQueueEntryId below.
+  outgoingTransactionId String?
+  incomingTransactionId String?
+
+  joinedAt            DateTime  @default(now())
+  payoutDueEstimateAt DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  adminNotes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One-to-many: a QueueEntry that gets unmatched (payer cancels before paying) and later
+  // re-matched accumulates more than one Transaction over its lifetime — only the most recent
+  // is "active". QueueService resolves "the current one" via outgoing/incomingTransactionId
+  // above rather than these relations, which exist for completeness/admin queries.
+  transactionsAsPayer Transaction[] @relation("PayerQueueEntry")
+  transactionsAsPayee Transaction[] @relation("PayeeQueueEntry")
+
+  @@index([levelId, status, queueSequence])
+  @@index([userId])
+}
+
+// A matched payer/payee pair within one level. Created the instant FIFO matching pairs a new
+// joiner with the oldest waiting member; the pooled payment flow (proof, disbursement, dispute)
+// that advances status past AWAITING_PAYER_PROOF is built in a later phase (plan §9 step 6).
+model Transaction {
+  id      String @id @default(uuid())
+  levelId String
+  level   Level  @relation(fields: [levelId], references: [id])
+
+  // Not unique: the same QueueEntry can be the payee of successive Transactions over its
+  // lifetime (matched -> payer cancels before paying -> unmatched -> matched again).
+  payerQueueEntryId String
+  payerQueueEntry   QueueEntry @relation("PayerQueueEntry", fields: [payerQueueEntryId], references: [id])
+  payeeQueueEntryId String
+  payeeQueueEntry   QueueEntry @relation("PayeeQueueEntry", fields: [payeeQueueEntryId], references: [id])
+
+  payerUserId String
+  payerUser   User   @relation("TransactionsAsPayer", fields: [payerUserId], references: [id])
+  payeeUserId String
+  payeeUser   User   @relation("TransactionsAsPayee", fields: [payeeUserId], references: [id])
+
+  principalAmount      Int
+  platformFeeAmount    Int
+  payeeDisbursedAmount Int
+
+  matchType MatchType         @default(AUTOMATIC_FIFO)
+  status    TransactionStatus @default(AWAITING_PAYER_PROOF)
+
+  payerProofImageKey          String?
+  payerProofUploadedAt        DateTime?
+  principalReceivedAt         DateTime?
+  principalConfirmedByAdminId String?
+
+  payeeBankDetailsSnapshot Json?
+  disbursedAt              DateTime?
+  disbursedByAdminId       String?
+  disbursementReference    String?
+  disbursementProofKey     String?
+  payeeConfirmedAt         DateTime?
+
+  disputeReason          String?
+  disputeRaisedByUserId  String?
+  disputeRaisedAt        DateTime?
+  adminResolutionNotes   String?
+  adminResolvedByAdminId String?
+  adminResolvedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ledgerEntries TreasuryLedgerEntry[]
+
+  @@index([levelId, status])
+  @@index([payerUserId])
+  @@index([payeeUserId])
+  @@index([payerQueueEntryId])
+  @@index([payeeQueueEntryId])
+}
+
+// Append-only reconciliation source of truth (plan §2, §3) — running pot balance must match
+// the real bank account. Every entry is written inside the same DB transaction as the state
+// change that caused it, alongside an atomic update to TreasuryBalance below.
+model TreasuryLedgerEntry {
+  id                    String            @id @default(uuid())
+  entryType             TreasuryEntryType
+  amount                Int
+  relatedTransactionId  String?
+  relatedTransaction    Transaction?      @relation(fields: [relatedTransactionId], references: [id])
+  balanceAfter          Int
+  createdAt             DateTime          @default(now())
+
+  @@index([entryType, createdAt])
+  @@index([relatedTransactionId])
+}
+
+// Singleton running-balance counter (always id=1, seeded by prisma/seed.ts). Updated via an
+// atomic `increment` inside the same DB transaction as each TreasuryLedgerEntry write — this is
+// what makes balanceAfter race-safe under concurrent disbursements without a table-level lock.
+model TreasuryBalance {
+  id      Int @id @default(1)
+  balance Int @default(0)
 }
