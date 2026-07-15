@@ -40,17 +40,11 @@ export function Levels() {
           ))}
         </div>
 
-        <p className="mt-10 text-center text-sm text-muted">
-          A 5% platform fee applies when your payout is disbursed. Higher
-          levels have access to a larger optional incentive bonus — up to a
-          rate, never guaranteed.{" "}
-          <a
-            href="#faq-incentive-bonus"
-            className="font-medium text-primary underline underline-offset-4"
-          >
-            See how the incentive bonus works →
-          </a>
-        </p>
+        <div className="mt-10 text-center">
+          <ButtonLink href="/register" variant="primary">
+            Join now
+          </ButtonLink>
+        </div>
       </Container>
     </section>
   );
