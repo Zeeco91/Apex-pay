@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/levels", label: "Levels" },
   { href: "/dashboard/queue", label: "My Queue" },
+  { href: "/dashboard/referrals", label: "Referrals" },
   { href: "/dashboard/payout-details", label: "Payout Details" },
 ];
 

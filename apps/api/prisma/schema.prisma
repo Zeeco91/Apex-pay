@@ -4,7 +4,10 @@
 // Phase 3 (Auth & Identity) added: User, KycRecord, OtpCode, RefreshToken.
 // Phase 4 (Levels & Dashboard skeleton) added: Level.
 // Phase 5 (Queue & Matching Engine) added: QueueEntry, Transaction.
-// Phase 6 (Pooled Payment Flow) adds: TreasuryLedgerEntry, TreasuryBalance.
+// Phase 6 (Pooled Payment Flow) added: TreasuryLedgerEntry, TreasuryBalance.
+// Phase 7 (Referral Program & Level Incentive Bonus) added: FeePool, PublicHoliday,
+// ReferralBonus, LevelIncentiveBonus, WithdrawalRequest.
+// Phase 8 (Admin Panel Core) adds: AdminAuditLog.
 
 generator client {
   provider = "prisma-client-js"
@@ -84,23 +87,72 @@ enum TreasuryEntryType {
   PLATFORM_REVENUE_WITHDRAWN
 }
 
+enum FeePoolType {
+  REFERRAL
+  LEVEL_INCENTIVE
+}
+
+enum ReferralBonusStatus {
+  HOLD
+  ELIGIBLE_FOR_WITHDRAWAL
+  WITHDRAWN
+  FORFEITED
+}
+
+enum LevelIncentiveBonusStatus {
+  PAID_IN_FULL
+  PARTIALLY_PAID
+  SKIPPED_INSUFFICIENT_POOL
+}
+
+enum WithdrawalType {
+  REFERRAL_BONUS
+}
+
+enum WithdrawalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum AdminActionType {
+  USER_SUSPENDED
+  USER_BANNED
+  USER_REINSTATED
+  KYC_APPROVED
+  KYC_REJECTED
+  QUEUE_ENTRY_HELD
+  QUEUE_ENTRY_RELEASED
+  QUEUE_MANUAL_MATCH
+  LEVEL_UPDATED
+  TRANSACTION_PRINCIPAL_CONFIRMED
+  TRANSACTION_DISBURSED
+  TRANSACTION_DISPUTE_RESOLVED
+  WITHDRAWAL_APPROVED
+  WITHDRAWAL_REJECTED
+  WITHDRAWAL_PAID
+  PUBLIC_HOLIDAY_ADDED
+  PUBLIC_HOLIDAY_REMOVED
+}
+
 model User {
-  id                 String    @id @default(uuid())
-  phone              String    @unique
+  id                 String     @id @default(uuid())
+  phone              String     @unique
   phoneVerifiedAt    DateTime?
   fullName           String
   pinHash            String
-  referralCode       String    @unique
+  referralCode       String     @unique
   referredByUserId   String?
-  referredBy         User?     @relation("Referrals", fields: [referredByUserId], references: [id])
-  referrals          User[]    @relation("Referrals")
+  referredBy         User?      @relation("Referrals", fields: [referredByUserId], references: [id])
+  referrals          User[]     @relation("Referrals")
   role               UserRole   @default(USER)
   status             UserStatus @default(PENDING_KYC)
   kycStatus          KycStatus  @default(NOT_SUBMITTED)
   payoutBankDetails  Json?
   deviceFingerprints Json?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
   lastLoginAt        DateTime?
 
   kycRecords    KycRecord[]
@@ -109,6 +161,14 @@ model User {
 
   transactionsAsPayer Transaction[] @relation("TransactionsAsPayer")
   transactionsAsPayee Transaction[] @relation("TransactionsAsPayee")
+
+  // A user can refer many people, but can only ever BE referred once (enforced by the
+  // @unique on ReferralBonus.referredUserId — this is a to-one relation from that side).
+  referralBonusesGiven  ReferralBonus[]       @relation("ReferralBonusReferrer")
+  referralBonusReceived ReferralBonus?        @relation("ReferralBonusReferred")
+  levelIncentiveBonuses LevelIncentiveBonus[]
+  withdrawalRequests    WithdrawalRequest[]
+  adminAuditLogs        AdminAuditLog[]
 
   @@index([status])
 }
@@ -164,22 +224,24 @@ model RefreshToken {
 // The three *PercentOfFee fields must sum to 100 for a given row — enforced in LevelsService,
 // not the DB, since Postgres has no portable "sum of sibling columns" constraint.
 model Level {
-  id                                   String   @id @default(uuid())
-  name                                 String
-  contributionAmount                   Int
-  feePercent                           Float    @default(5)
-  referralPoolAllocationPercentOfFee   Float
-  incentivePoolAllocationPercentOfFee  Float
-  platformRevenuePercentOfFee          Float
-  incentiveBonusRateOfPrincipal        Float
-  stalledThresholdDays                 Int      @default(14)
-  isActive                             Boolean  @default(true)
-  sortOrder                            Int      @unique
-  createdAt                            DateTime @default(now())
-  updatedAt                            DateTime @updatedAt
+  id                                  String   @id @default(uuid())
+  name                                String
+  contributionAmount                  Int
+  feePercent                          Float    @default(5)
+  referralPoolAllocationPercentOfFee  Float
+  incentivePoolAllocationPercentOfFee Float
+  platformRevenuePercentOfFee         Float
+  incentiveBonusRateOfPrincipal       Float
+  stalledThresholdDays                Int      @default(14)
+  isActive                            Boolean  @default(true)
+  sortOrder                           Int      @unique
+  createdAt                           DateTime @default(now())
+  updatedAt                           DateTime @updatedAt
 
-  queueEntries QueueEntry[]
-  transactions Transaction[]
+  queueEntries          QueueEntry[]
+  transactions          Transaction[]
+  referralBonuses       ReferralBonus[]
+  levelIncentiveBonuses LevelIncentiveBonus[]
 
   @@index([isActive, sortOrder])
 }
@@ -270,7 +332,12 @@ model Transaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  ledgerEntries TreasuryLedgerEntry[]
+  ledgerEntries            TreasuryLedgerEntry[]
+  // Not to-one: a single transaction can trigger a ReferralBonus for BOTH parties at once
+  // (payer and payee are each checked independently in TransactionsService.confirmReceipt),
+  // so this is a list even though any one transaction rarely produces more than one.
+  triggeredReferralBonuses ReferralBonus[]
+  triggeredIncentiveBonus  LevelIncentiveBonus?
 
   @@index([levelId, status])
   @@index([payerUserId])
@@ -283,13 +350,13 @@ model Transaction {
 // the real bank account. Every entry is written inside the same DB transaction as the state
 // change that caused it, alongside an atomic update to TreasuryBalance below.
 model TreasuryLedgerEntry {
-  id                    String            @id @default(uuid())
-  entryType             TreasuryEntryType
-  amount                Int
-  relatedTransactionId  String?
-  relatedTransaction    Transaction?      @relation(fields: [relatedTransactionId], references: [id])
-  balanceAfter          Int
-  createdAt             DateTime          @default(now())
+  id                   String            @id @default(uuid())
+  entryType            TreasuryEntryType
+  amount               Int
+  relatedTransactionId String?
+  relatedTransaction   Transaction?      @relation(fields: [relatedTransactionId], references: [id])
+  balanceAfter         Int
+  createdAt            DateTime          @default(now())
 
   @@index([entryType, createdAt])
   @@index([relatedTransactionId])
@@ -301,4 +368,146 @@ model TreasuryLedgerEntry {
 model TreasuryBalance {
   id      Int @id @default(1)
   balance Int @default(0)
+}
+
+// Two rows (REFERRAL, LEVEL_INCENTIVE), seeded by prisma/seed.ts. currentBalance is the
+// earmarked sub-account within the pot that's actually available to pay out for that purpose —
+// it is credited via FEE_ALLOCATED_* ledger entries at disbursement (TransactionsService.disburse)
+// and debited when a bonus is actually paid. Reads/writes to currentBalance for payout decisions
+// MUST happen under a row lock (`SELECT ... FOR UPDATE`) in the same DB transaction as the
+// deduction — see TransactionsService for why (plan §5a: two concurrent disbursements must not
+// double-spend the same pool balance).
+model FeePool {
+  id                     String      @id @default(uuid())
+  poolType               FeePoolType @unique
+  currentBalance         Int         @default(0)
+  totalAllocatedLifetime Int         @default(0)
+  totalPaidLifetime      Int         @default(0)
+  updatedAt              DateTime    @updatedAt
+}
+
+// Maintained calendar for the referral bonus hold period's "30 working days" calculation
+// (plan §5). Seeded with a starter set of Nigerian public holidays; a real admin-editable
+// surface arrives with the Admin Panel Core phase.
+model PublicHoliday {
+  id   String   @id @default(uuid())
+  date DateTime @unique @db.Date
+  name String
+
+  @@index([date])
+}
+
+// One row per referred user, ever (enforced by @unique below) — created the instant that
+// referred user's own first Transaction reaches CONFIRMED (plan §5, "not just at sign-up").
+// The referrer only ever gets rewarded for a genuinely-participating referral, not a signup.
+model ReferralBonus {
+  id             String @id @default(uuid())
+  referrerUserId String
+  referrerUser   User   @relation("ReferralBonusReferrer", fields: [referrerUserId], references: [id])
+  referredUserId String @unique
+  referredUser   User   @relation("ReferralBonusReferred", fields: [referredUserId], references: [id])
+
+  triggerTransactionId String
+  triggerTransaction   Transaction @relation(fields: [triggerTransactionId], references: [id])
+  levelId              String
+  level                Level       @relation(fields: [levelId], references: [id])
+
+  // bonusAmount = triggerTransaction.platformFeeAmount * level.referralPoolAllocationPercentOfFee
+  // — always derived from fee revenue actually collected on this one transaction, never from
+  // any user's principal. Not capped against FeePool[REFERRAL].currentBalance at creation time
+  // (unlike LevelIncentiveBonus) — availability is an admin judgment call made at withdrawal
+  // approval, informed by GET /admin/fee-pools, since payout only happens after a 30-working-day
+  // hold anyway and the pool has time to accumulate.
+  grossFeeAmount Int
+  bonusAmount    Int
+
+  status          ReferralBonusStatus @default(HOLD)
+  holdStartedAt   DateTime            @default(now())
+  holdReleaseAt   DateTime
+  withdrawnAt     DateTime?
+  forfeitedAt     DateTime?
+  forfeitedReason String?
+
+  withdrawalRequest WithdrawalRequest?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([referrerUserId, status])
+  @@index([status, holdReleaseAt])
+}
+
+// One row per (payee, disbursed transaction) where the level offers a nonzero incentive rate —
+// created inside the same DB transaction as TransactionsService.disburse. paidAmount can be less
+// than entitlementAmount (or zero) if FeePool[LEVEL_INCENTIVE] can't cover it — see plan §5a.
+// This is intentionally variable, never guaranteed; UI copy must say "up to X%", never "get X%".
+model LevelIncentiveBonus {
+  id      String @id @default(uuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  levelId String
+  level   Level  @relation(fields: [levelId], references: [id])
+
+  triggerTransactionId String      @unique
+  triggerTransaction   Transaction @relation(fields: [triggerTransactionId], references: [id])
+
+  entitlementAmount Int
+  paidAmount        Int
+  status            LevelIncentiveBonusStatus
+  poolBalanceBefore Int
+  poolBalanceAfter  Int
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// A referral bonus payout request, raised by the referrer once their ReferralBonus is
+// ELIGIBLE_FOR_WITHDRAWAL. Admin-gated approve/reject/mark-paid flow (no UI yet — see
+// AdminReferralsController) mirrors the disbursement confirm-then-pay pattern from phase 6.
+model WithdrawalRequest {
+  id     String         @id @default(uuid())
+  userId String
+  user   User           @relation(fields: [userId], references: [id])
+  amount Int
+  type   WithdrawalType @default(REFERRAL_BONUS)
+
+  referralBonusId String        @unique
+  referralBonus   ReferralBonus @relation(fields: [referralBonusId], references: [id])
+
+  bankDetailsSnapshot Json
+  status              WithdrawalRequestStatus @default(PENDING)
+  reviewedByAdminId   String?
+  reviewedAt          DateTime?
+  rejectionReason     String?
+  paymentReference    String?
+  paidAt              DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([status])
+}
+
+// Immutable-by-convention record of every discretionary/adverse admin action (plan §7:
+// "every admin mutation logged... nothing happens without an audit trail"). No PATCH/DELETE
+// endpoint is ever exposed for this model — true DB-level append-only enforcement (REVOKE
+// UPDATE/DELETE) needs a dedicated DB role this single-connection-string setup doesn't have;
+// documented gap, not silently pretended-away.
+model AdminAuditLog {
+  id               String          @id @default(uuid())
+  adminUserId      String
+  adminUser        User            @relation(fields: [adminUserId], references: [id])
+  actionType       AdminActionType
+  targetEntityType String
+  targetEntityId   String
+  reason           String
+  beforeState      Json?
+  afterState       Json?
+  ipAddress        String?
+  createdAt        DateTime        @default(now())
+
+  @@index([targetEntityType, targetEntityId])
+  @@index([adminUserId, createdAt])
 }

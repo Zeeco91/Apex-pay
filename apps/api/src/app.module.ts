@@ -13,6 +13,9 @@ import { KycModule } from './modules/kyc/kyc.module';
 import { LevelsModule } from './modules/levels/levels.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { ReferralsModule } from './modules/referrals/referrals.module';
+import { AuditLogModule } from './common/audit-log/audit-log.module';
+import { PublicHolidaysModule } from './modules/public-holidays/public-holidays.module';
 
 @Module({
   imports: [
@@ -31,6 +34,9 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
     LevelsModule,
     QueueModule,
     TransactionsModule,
+    ReferralsModule,
+    AuditLogModule,
+    PublicHolidaysModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

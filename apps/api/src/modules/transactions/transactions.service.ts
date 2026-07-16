@@ -19,6 +19,10 @@ import {
   type FileStorageProvider,
 } from '../../common/file-storage/file-storage-provider.interface';
 import { validateProofImage } from '../../common/file-storage/image-validation.util';
+import { writeLedgerEntry } from '../../common/treasury/treasury-ledger.util';
+import { EXTENDED_TX_OPTIONS } from '../../common/prisma/transaction-options.util';
+import { AuditLogService } from '../../common/audit-log/audit-log.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import type { Env } from '../../config/env.validation';
 
 const TERMINAL_TRANSACTION_STATUSES: TransactionStatus[] = [
@@ -95,6 +99,8 @@ export class TransactionsService {
     @Inject(FILE_STORAGE_PROVIDER)
     private readonly fileStorage: FileStorageProvider,
     private readonly config: ConfigService<Env, true>,
+    private readonly referralsService: ReferralsService,
+    private readonly auditLog: AuditLogService,
   ) {}
 
   async getForUser(
@@ -191,8 +197,15 @@ export class TransactionsService {
         data: { status: 'WAITING_FOR_PAYOUT' },
       });
 
+      // Either party (or both) may be a referred user completing their first-ever transaction —
+      // this is the "not just at sign-up" trigger point for the referral bonus (plan §5).
+      await this.referralsService.tryCreateReferralBonusesForTransaction(
+        tx,
+        transaction,
+      );
+
       return this.toDetail(updated, userId);
-    });
+    }, EXTENDED_TX_OPTIONS);
   }
 
   async raiseDispute(
@@ -279,11 +292,24 @@ export class TransactionsService {
         },
       });
 
-      await this.writeLedgerEntry(tx, {
+      await writeLedgerEntry(tx, {
         entryType: 'PRINCIPAL_COLLECTED',
         amount: transaction.principalAmount,
         relatedTransactionId: transaction.id,
       });
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'TRANSACTION_PRINCIPAL_CONFIRMED',
+          targetEntityType: 'Transaction',
+          targetEntityId: transaction.id,
+          reason: `Principal of ₦${transaction.principalAmount} confirmed received into the pot`,
+          beforeState: { status: transaction.status },
+          afterState: { status: 'PENDING_DISBURSEMENT' },
+        },
+        tx,
+      );
 
       return this.loadAdminSummary(tx, transaction.id);
     });
@@ -305,9 +331,10 @@ export class TransactionsService {
         );
       }
 
-      const payee = await tx.user.findUniqueOrThrow({
-        where: { id: transaction.payeeUserId },
-      });
+      const [payee, level] = await Promise.all([
+        tx.user.findUniqueOrThrow({ where: { id: transaction.payeeUserId } }),
+        tx.level.findUniqueOrThrow({ where: { id: transaction.levelId } }),
+      ]);
       if (!payee.payoutBankDetails) {
         throw new ConflictException(
           'Payee has not set up payout bank details yet.',
@@ -327,22 +354,35 @@ export class TransactionsService {
 
       // Principal (full amount) was already counted as collected when the admin confirmed
       // receipt — only the payee's share actually leaves the pot here.
-      await this.writeLedgerEntry(tx, {
+      await writeLedgerEntry(tx, {
         entryType: 'DISBURSED',
         amount: -transaction.payeeDisbursedAmount,
         relatedTransactionId: transaction.id,
       });
-      // Informational only: the fee isn't a separate cash movement — it's exactly the gap left
-      // behind by PRINCIPAL_COLLECTED minus DISBURSED, so it doesn't touch the running balance.
-      await this.writeLedgerEntry(tx, {
-        entryType: 'FEE_COLLECTED',
-        amount: transaction.platformFeeAmount,
-        relatedTransactionId: transaction.id,
-        affectsBalance: false,
-      });
+      // Splits the fee into referral/incentive/platform-revenue pools (informational for the
+      // main pot balance — see writeLedgerEntry's affectsBalance doc) and, if this level offers
+      // one, pays the payee's level incentive bonus out of the now-updated incentive pool.
+      await this.referralsService.allocateFeeAndPayIncentive(
+        tx,
+        transaction,
+        level,
+      );
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'TRANSACTION_DISBURSED',
+          targetEntityType: 'Transaction',
+          targetEntityId: transaction.id,
+          reason: `Disbursed ₦${transaction.payeeDisbursedAmount} to payee, reference ${params.reference}`,
+          beforeState: { status: transaction.status },
+          afterState: { status: 'DISBURSED', reference: params.reference },
+        },
+        tx,
+      );
 
       return this.loadAdminSummary(tx, transaction.id);
-    });
+    }, EXTENDED_TX_OPTIONS);
   }
 
   async resolveDispute(
@@ -385,6 +425,12 @@ export class TransactionsService {
           where: { id: transaction.payerQueueEntryId },
           data: { status: 'WAITING_FOR_PAYOUT' },
         });
+        // Admin-resolved-confirmed is a legitimate completion in every respect — treat it the
+        // same as a normal confirmReceipt for referral bonus triggering.
+        await this.referralsService.tryCreateReferralBonusesForTransaction(
+          tx,
+          transaction,
+        );
       } else {
         // Admin sides with the dispute — void the match, both parties return to the pool
         // unmatched. This does not reverse any treasury ledger entries already recorded for
@@ -400,8 +446,26 @@ export class TransactionsService {
         });
       }
 
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'TRANSACTION_DISPUTE_RESOLVED',
+          targetEntityType: 'Transaction',
+          targetEntityId: transaction.id,
+          reason: params.notes,
+          beforeState: { status: transaction.status },
+          afterState: {
+            status:
+              params.resolution === 'CONFIRMED'
+                ? 'ADMIN_RESOLVED_CONFIRMED'
+                : 'ADMIN_RESOLVED_REJECTED',
+          },
+        },
+        tx,
+      );
+
       return this.loadAdminSummary(tx, transaction.id);
-    });
+    }, EXTENDED_TX_OPTIONS);
   }
 
   async getTreasuryLedger(): Promise<TreasuryLedgerEntryView[]> {
@@ -424,34 +488,6 @@ export class TransactionsService {
       include: { level: true, payerUser: true, payeeUser: true },
     });
     return toAdminSummary(transaction);
-  }
-
-  /** Atomically increments the singleton running balance and appends the matching ledger row. */
-  private async writeLedgerEntry(
-    tx: TxClient,
-    params: {
-      entryType: TreasuryEntryType;
-      amount: number;
-      relatedTransactionId: string;
-      affectsBalance?: boolean;
-    },
-  ): Promise<void> {
-    const affectsBalance = params.affectsBalance ?? true;
-    const balance = affectsBalance
-      ? await tx.treasuryBalance.update({
-          where: { id: 1 },
-          data: { balance: { increment: params.amount } },
-        })
-      : await tx.treasuryBalance.findUniqueOrThrow({ where: { id: 1 } });
-
-    await tx.treasuryLedgerEntry.create({
-      data: {
-        entryType: params.entryType,
-        amount: params.amount,
-        relatedTransactionId: params.relatedTransactionId,
-        balanceAfter: balance.balance,
-      },
-    });
   }
 
   private toDetail(

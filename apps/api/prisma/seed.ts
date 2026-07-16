@@ -69,6 +69,43 @@ async function main() {
     create: { id: 1, balance: 0 },
   });
   console.log('Seeded treasury balance singleton.');
+
+  // The two fee pools (phase 7) — must exist before any disbursement, since fee allocation
+  // increments these rather than creating them.
+  for (const poolType of ['REFERRAL', 'LEVEL_INCENTIVE'] as const) {
+    await prisma.feePool.upsert({
+      where: { poolType },
+      update: {},
+      create: { poolType },
+    });
+  }
+  console.log('Seeded fee pools.');
+
+  // Starter public holiday calendar for the referral bonus's 30-*working*-day hold calculation
+  // (plan §5). Fixed-date holidays are accurate; Islamic calendar dates (Eid al-Fitr/al-Adha)
+  // are estimates — a real admin-editable calendar arrives with the Admin Panel Core phase.
+  const PUBLIC_HOLIDAYS_2026 = [
+    { date: '2026-01-01', name: "New Year's Day" },
+    { date: '2026-03-20', name: 'Eid al-Fitr' },
+    { date: '2026-03-21', name: 'Eid al-Fitr Holiday' },
+    { date: '2026-04-03', name: 'Good Friday' },
+    { date: '2026-04-06', name: 'Easter Monday' },
+    { date: '2026-05-01', name: "Workers' Day" },
+    { date: '2026-05-27', name: 'Eid al-Adha' },
+    { date: '2026-05-28', name: 'Eid al-Adha Holiday' },
+    { date: '2026-06-12', name: 'Democracy Day' },
+    { date: '2026-10-01', name: 'Independence Day' },
+    { date: '2026-12-25', name: 'Christmas Day' },
+    { date: '2026-12-28', name: 'Boxing Day (Observed)' },
+  ];
+  for (const holiday of PUBLIC_HOLIDAYS_2026) {
+    await prisma.publicHoliday.upsert({
+      where: { date: new Date(holiday.date) },
+      update: { name: holiday.name },
+      create: { date: new Date(holiday.date), name: holiday.name },
+    });
+  }
+  console.log(`Seeded ${PUBLIC_HOLIDAYS_2026.length} public holidays.`);
 }
 
 main()

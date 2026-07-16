@@ -1,4 +1,10 @@
-import type { QueueEntryStatus, TransactionStatus } from "@/types/api";
+import type {
+  QueueEntryStatus,
+  ReferralBonusStatus,
+  ReferredUserStatus,
+  TransactionStatus,
+  WithdrawalRequestStatus,
+} from "@/types/api";
 
 /** "PENDING_KYC" -> "Pending Kyc". Used for rendering enum-shaped API values as UI labels. */
 export function formatEnumLabel(value: string): string {
@@ -36,4 +42,38 @@ const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
 
 export function describeTransactionStatus(status: TransactionStatus): string {
   return TRANSACTION_STATUS_LABELS[status];
+}
+
+const REFERRED_USER_STATUS_LABELS: Record<ReferredUserStatus, string> = {
+  SIGNED_UP: "Signed up — bonus triggers on their first contribution cycle",
+  BONUS_HELD: "Bonus earned — on hold",
+  BONUS_ELIGIBLE: "Bonus ready to withdraw",
+  BONUS_WITHDRAWN: "Bonus paid",
+  BONUS_FORFEITED: "Bonus forfeited",
+};
+
+export function describeReferredUserStatus(status: ReferredUserStatus): string {
+  return REFERRED_USER_STATUS_LABELS[status];
+}
+
+const REFERRAL_BONUS_STATUS_LABELS: Record<ReferralBonusStatus, string> = {
+  HOLD: "On hold",
+  ELIGIBLE_FOR_WITHDRAWAL: "Ready to withdraw",
+  WITHDRAWN: "Withdrawn",
+  FORFEITED: "Forfeited",
+};
+
+export function describeReferralBonusStatus(status: ReferralBonusStatus): string {
+  return REFERRAL_BONUS_STATUS_LABELS[status];
+}
+
+const WITHDRAWAL_REQUEST_STATUS_LABELS: Record<WithdrawalRequestStatus, string> = {
+  PENDING: "Pending review",
+  APPROVED: "Approved — payment processing",
+  REJECTED: "Rejected",
+  PAID: "Paid",
+};
+
+export function describeWithdrawalRequestStatus(status: WithdrawalRequestStatus): string {
+  return WITHDRAWAL_REQUEST_STATUS_LABELS[status];
 }

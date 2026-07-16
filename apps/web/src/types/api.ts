@@ -108,3 +108,233 @@ export interface TransactionDetail {
   adminResolutionNotes: string | null;
   createdAt: string;
 }
+
+export type ReferredUserStatus =
+  | "SIGNED_UP"
+  | "BONUS_HELD"
+  | "BONUS_ELIGIBLE"
+  | "BONUS_WITHDRAWN"
+  | "BONUS_FORFEITED";
+
+export interface ReferredUserSummary {
+  id: string;
+  fullName: string;
+  joinedAt: string;
+  status: ReferredUserStatus;
+}
+
+export type ReferralBonusStatus = "HOLD" | "ELIGIBLE_FOR_WITHDRAWAL" | "WITHDRAWN" | "FORFEITED";
+
+export interface ReferralBonusSummary {
+  id: string;
+  referredUserFullName: string;
+  levelName: string;
+  bonusAmount: number;
+  status: ReferralBonusStatus;
+  holdReleaseAt: string;
+  withdrawnAt: string | null;
+  hasWithdrawalRequest: boolean;
+}
+
+export type WithdrawalRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "PAID";
+
+export interface WithdrawalRequestView {
+  id: string;
+  amount: number;
+  status: WithdrawalRequestStatus;
+  rejectionReason: string | null;
+  paymentReference: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------------------
+// Admin
+// ---------------------------------------------------------------------------------------
+
+export interface AdminUserSummary {
+  id: string;
+  phone: string;
+  fullName: string;
+  role: UserRole;
+  status: UserStatus;
+  kycStatus: KycStatus;
+  referralCode: string;
+  referredByUserId: string | null;
+  payoutBankDetails: PayoutBankDetails | null;
+  createdAt: string;
+  lastLoginAt: string | null;
+}
+
+export interface AdminKycRecordView {
+  id: string;
+  userId: string;
+  userFullName: string;
+  userPhone: string;
+  idType: string;
+  idNumber: string;
+  status: KycStatus;
+  rejectionReason: string | null;
+  createdAt: string;
+}
+
+export interface AdminQueueEntryView {
+  id: string;
+  userId: string;
+  userFullName: string;
+  userPhone: string;
+  status: QueueEntryStatus;
+  queueSequence: number;
+  joinedAt: string;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  transactionId: string | null;
+  transactionStatus: TransactionStatus | null;
+}
+
+export interface AdminAggregateParty {
+  id: string;
+  fullName: string;
+  phone: string;
+}
+
+export interface AdminTransactionSummary {
+  id: string;
+  levelId: string;
+  levelName: string;
+  status: TransactionStatus;
+  matchType: string;
+  principalAmount: number;
+  platformFeeAmount: number;
+  payeeDisbursedAmount: number;
+  payer: AdminAggregateParty;
+  payee: AdminAggregateParty;
+  payerProofUploadedAt: string | null;
+  principalReceivedAt: string | null;
+  disbursedAt: string | null;
+  disbursementReference: string | null;
+  payeeConfirmedAt: string | null;
+  disputeReason: string | null;
+  disputeRaisedAt: string | null;
+  createdAt: string;
+}
+
+export type TreasuryEntryType =
+  | "PRINCIPAL_COLLECTED"
+  | "DISBURSED"
+  | "FEE_COLLECTED"
+  | "FEE_ALLOCATED_REFERRAL_POOL"
+  | "FEE_ALLOCATED_INCENTIVE_POOL"
+  | "FEE_ALLOCATED_PLATFORM_REVENUE"
+  | "REFERRAL_BONUS_PAID"
+  | "LEVEL_INCENTIVE_BONUS_PAID"
+  | "PLATFORM_REVENUE_WITHDRAWN";
+
+export interface TreasuryLedgerEntryView {
+  id: string;
+  entryType: TreasuryEntryType;
+  amount: number;
+  balanceAfter: number;
+  relatedTransactionId: string | null;
+  createdAt: string;
+}
+
+export interface AdminWithdrawalRequestView extends WithdrawalRequestView {
+  userFullName: string;
+  userPhone: string;
+  referralBonusId: string;
+}
+
+export interface AdminReferralBonusView {
+  id: string;
+  referrerFullName: string;
+  referrerPhone: string;
+  referredFullName: string;
+  referredPhone: string;
+  levelName: string;
+  bonusAmount: number;
+  status: ReferralBonusStatus;
+  holdReleaseAt: string;
+  createdAt: string;
+}
+
+export type LevelIncentiveBonusStatus =
+  | "PAID_IN_FULL"
+  | "PARTIALLY_PAID"
+  | "SKIPPED_INSUFFICIENT_POOL";
+
+export interface AdminLevelIncentiveBonusView {
+  id: string;
+  payeeFullName: string;
+  payeePhone: string;
+  levelName: string;
+  entitlementAmount: number;
+  paidAmount: number;
+  status: LevelIncentiveBonusStatus;
+  createdAt: string;
+}
+
+export type FeePoolType = "REFERRAL" | "LEVEL_INCENTIVE";
+
+export interface FeePoolView {
+  id: string;
+  poolType: FeePoolType;
+  currentBalance: number;
+  totalAllocatedLifetime: number;
+  totalPaidLifetime: number;
+  updatedAt: string;
+}
+
+export interface AdminLevel {
+  id: string;
+  name: string;
+  contributionAmount: number;
+  feePercent: number;
+  referralPoolAllocationPercentOfFee: number;
+  incentivePoolAllocationPercentOfFee: number;
+  platformRevenuePercentOfFee: number;
+  incentiveBonusRateOfPrincipal: number;
+  stalledThresholdDays: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PublicHolidayView {
+  id: string;
+  date: string;
+  name: string;
+}
+
+export type AdminActionType =
+  | "USER_SUSPENDED"
+  | "USER_BANNED"
+  | "USER_REINSTATED"
+  | "KYC_APPROVED"
+  | "KYC_REJECTED"
+  | "QUEUE_ENTRY_HELD"
+  | "QUEUE_ENTRY_RELEASED"
+  | "QUEUE_MANUAL_MATCH"
+  | "LEVEL_UPDATED"
+  | "TRANSACTION_PRINCIPAL_CONFIRMED"
+  | "TRANSACTION_DISBURSED"
+  | "TRANSACTION_DISPUTE_RESOLVED"
+  | "WITHDRAWAL_APPROVED"
+  | "WITHDRAWAL_REJECTED"
+  | "WITHDRAWAL_PAID"
+  | "PUBLIC_HOLIDAY_ADDED"
+  | "PUBLIC_HOLIDAY_REMOVED";
+
+export interface AdminAuditLogEntry {
+  id: string;
+  adminUserId: string;
+  adminFullName: string;
+  actionType: AdminActionType;
+  targetEntityType: string;
+  targetEntityId: string;
+  reason: string;
+  beforeState: unknown;
+  afterState: unknown;
+  createdAt: string;
+}

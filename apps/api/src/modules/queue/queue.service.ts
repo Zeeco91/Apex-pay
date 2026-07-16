@@ -11,6 +11,8 @@ import {
   type TransactionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EXTENDED_TX_OPTIONS } from '../../common/prisma/transaction-options.util';
+import { AuditLogService } from '../../common/audit-log/audit-log.service';
 
 const ACTIVE_QUEUE_ENTRY_STATUSES: QueueEntryStatus[] = [
   'PENDING_JOIN_PAYMENT',
@@ -54,9 +56,30 @@ export interface QueueStats {
   message: string;
 }
 
+export interface AdminQueueEntryView {
+  id: string;
+  userId: string;
+  userFullName: string;
+  userPhone: string;
+  status: QueueEntryStatus;
+  queueSequence: number;
+  joinedAt: Date;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+  transactionId: string | null;
+  transactionStatus: TransactionStatus | null;
+}
+
+const MANUAL_MATCH_ELIGIBLE_STATUSES: QueueEntryStatus[] = [
+  'WAITING_FOR_PAYOUT',
+];
+
 @Injectable()
 export class QueueService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   async joinQueue(userId: string, levelId: string): Promise<JoinQueueResult> {
     try {
@@ -161,7 +184,7 @@ export class QueueService {
             transaction.status,
           ),
         };
-      });
+      }, EXTENDED_TX_OPTIONS);
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -379,6 +402,253 @@ export class QueueService {
       ),
     };
   }
+
+  // ---------------------------------------------------------------------------------------
+  // Admin
+  // ---------------------------------------------------------------------------------------
+
+  async listForAdminByLevel(levelId: string): Promise<AdminQueueEntryView[]> {
+    const entries = await this.prisma.queueEntry.findMany({
+      where: { levelId },
+      include: { user: true },
+      orderBy: { queueSequence: 'asc' },
+    });
+    const latestById = await this.latestTransactionsForEntries(
+      this.prisma,
+      entries.map((entry) => entry.id),
+    );
+    return entries.map((entry) => {
+      const latest = latestById.get(entry.id);
+      return {
+        id: entry.id,
+        userId: entry.userId,
+        userFullName: entry.user.fullName,
+        userPhone: entry.user.phone,
+        status: entry.status,
+        queueSequence: entry.queueSequence,
+        joinedAt: entry.joinedAt,
+        completedAt: entry.completedAt,
+        cancelledAt: entry.cancelledAt,
+        transactionId: latest?.id ?? null,
+        transactionStatus: latest?.status ?? null,
+      };
+    });
+  }
+
+  /**
+   * Force-pairs two entries that are both already WAITING_FOR_PAYOUT in the same level —
+   * e.g. to unstick a level where automatic FIFO matching hasn't produced a pair for some
+   * anomalous reason. Mirrors joinQueue's matched branch but both entries pre-exist and neither
+   * is "new". matchType is MANUAL_ADMIN so it's distinguishable from automatic matches later.
+   */
+  async manualMatch(
+    adminId: string,
+    levelId: string,
+    payerEntryId: string,
+    payeeEntryId: string,
+    reason: string,
+  ): Promise<{ payerEntry: QueueEntrySummary; payeeEntry: QueueEntrySummary }> {
+    if (payerEntryId === payeeEntryId) {
+      throw new ConflictException(
+        'Choose two different queue entries to match.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const [payerEntry, payeeEntry] = await Promise.all([
+        tx.queueEntry.findUnique({
+          where: { id: payerEntryId },
+          include: { level: true },
+        }),
+        tx.queueEntry.findUnique({
+          where: { id: payeeEntryId },
+          include: { level: true },
+        }),
+      ]);
+      if (!payerEntry || !payeeEntry) {
+        throw new NotFoundException('Queue entry not found');
+      }
+      if (payerEntry.levelId !== levelId || payeeEntry.levelId !== levelId) {
+        throw new ConflictException('Both entries must belong to this level.');
+      }
+      if (payerEntry.userId === payeeEntry.userId) {
+        throw new ConflictException(
+          "A member can't be matched with themselves.",
+        );
+      }
+      if (
+        !MANUAL_MATCH_ELIGIBLE_STATUSES.includes(payerEntry.status) ||
+        !MANUAL_MATCH_ELIGIBLE_STATUSES.includes(payeeEntry.status)
+      ) {
+        throw new ConflictException(
+          'Both entries must currently be waiting for a payout to be manually matched.',
+        );
+      }
+
+      const level = payerEntry.level;
+      const principalAmount = level.contributionAmount;
+      const platformFeeAmount = Math.round(
+        (principalAmount * level.feePercent) / 100,
+      );
+      const payeeDisbursedAmount = principalAmount - platformFeeAmount;
+
+      const transaction = await tx.transaction.create({
+        data: {
+          levelId: level.id,
+          payerQueueEntryId: payerEntry.id,
+          payeeQueueEntryId: payeeEntry.id,
+          payerUserId: payerEntry.userId,
+          payeeUserId: payeeEntry.userId,
+          principalAmount,
+          platformFeeAmount,
+          payeeDisbursedAmount,
+          matchType: 'MANUAL_ADMIN',
+          status: 'AWAITING_PAYER_PROOF',
+        },
+      });
+
+      const updatedPayerEntry = await tx.queueEntry.update({
+        where: { id: payerEntry.id },
+        data: {
+          status: 'PENDING_JOIN_PAYMENT',
+          outgoingTransactionId: transaction.id,
+        },
+      });
+      const updatedPayeeEntry = await tx.queueEntry.update({
+        where: { id: payeeEntry.id },
+        data: {
+          status: 'MATCHED_AS_PAYEE',
+          incomingTransactionId: transaction.id,
+        },
+      });
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'QUEUE_MANUAL_MATCH',
+          targetEntityType: 'Transaction',
+          targetEntityId: transaction.id,
+          reason,
+          beforeState: {
+            payerEntryStatus: payerEntry.status,
+            payeeEntryStatus: payeeEntry.status,
+          },
+          afterState: {
+            payerEntryStatus: updatedPayerEntry.status,
+            payeeEntryStatus: updatedPayeeEntry.status,
+            transactionId: transaction.id,
+          },
+        },
+        tx,
+      );
+
+      return {
+        payerEntry: toSummary(
+          updatedPayerEntry,
+          level,
+          transaction.id,
+          transaction.status,
+        ),
+        payeeEntry: toSummary(
+          updatedPayeeEntry,
+          level,
+          transaction.id,
+          transaction.status,
+        ),
+      };
+    }, EXTENDED_TX_OPTIONS);
+  }
+
+  async holdEntry(
+    adminId: string,
+    entryId: string,
+    reason: string,
+  ): Promise<QueueEntrySummary> {
+    return this.prisma.$transaction(async (tx) => {
+      const entry = await tx.queueEntry.findUnique({
+        where: { id: entryId },
+        include: { level: true },
+      });
+      if (!entry) throw new NotFoundException('Queue entry not found');
+      if (
+        !ACTIVE_QUEUE_ENTRY_STATUSES.includes(entry.status) ||
+        entry.status === 'ADMIN_HOLD'
+      ) {
+        throw new ConflictException(
+          `Can't hold — this entry is ${describeStatusForAdmin(entry.status)}.`,
+        );
+      }
+
+      const updated = await tx.queueEntry.update({
+        where: { id: entryId },
+        data: { status: 'ADMIN_HOLD' },
+      });
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'QUEUE_ENTRY_HELD',
+          targetEntityType: 'QueueEntry',
+          targetEntityId: entryId,
+          reason,
+          beforeState: { status: entry.status },
+          afterState: { status: updated.status },
+        },
+        tx,
+      );
+
+      const latest = await this.latestTransactionForEntry(tx, entryId);
+      return toSummary(
+        updated,
+        entry.level,
+        latest?.id ?? null,
+        latest?.status ?? null,
+      );
+    });
+  }
+
+  async releaseEntry(
+    adminId: string,
+    entryId: string,
+    reason?: string,
+  ): Promise<QueueEntrySummary> {
+    return this.prisma.$transaction(async (tx) => {
+      const entry = await tx.queueEntry.findUnique({
+        where: { id: entryId },
+        include: { level: true },
+      });
+      if (!entry) throw new NotFoundException('Queue entry not found');
+      if (entry.status !== 'ADMIN_HOLD') {
+        throw new ConflictException('This entry is not currently on hold.');
+      }
+
+      const updated = await tx.queueEntry.update({
+        where: { id: entryId },
+        data: { status: 'WAITING_FOR_PAYOUT' },
+      });
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'QUEUE_ENTRY_RELEASED',
+          targetEntityType: 'QueueEntry',
+          targetEntityId: entryId,
+          reason: reason ?? 'No reason provided',
+          beforeState: { status: entry.status },
+          afterState: { status: updated.status },
+        },
+        tx,
+      );
+
+      const latest = await this.latestTransactionForEntry(tx, entryId);
+      return toSummary(
+        updated,
+        entry.level,
+        latest?.id ?? null,
+        latest?.status ?? null,
+      );
+    });
+  }
 }
 
 function toSummary(
@@ -408,6 +678,10 @@ function toSummary(
     transactionId,
     transactionStatus,
   };
+}
+
+function describeStatusForAdmin(status: string): string {
+  return status.replace(/_/g, ' ').toLowerCase();
 }
 
 function describeUncancellable(status: QueueEntryStatus): string {
