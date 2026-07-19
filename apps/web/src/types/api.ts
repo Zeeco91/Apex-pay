@@ -19,6 +19,7 @@ export interface PublicUser {
   status: UserStatus;
   kycStatus: KycStatus;
   payoutBankDetails: PayoutBankDetails | null;
+  mfaEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string | null;
@@ -337,4 +338,104 @@ export interface AdminAuditLogEntry {
   beforeState: unknown;
   afterState: unknown;
   createdAt: string;
+}
+
+export interface AuditLogPage {
+  entries: AdminAuditLogEntry[];
+  total: number;
+}
+
+// ---------------------------------------------------------------------------------------
+// Admin Reporting & Treasury Reconciliation (Phase 9)
+// ---------------------------------------------------------------------------------------
+
+export type ReconciliationTrigger = "SCHEDULED" | "MANUAL";
+
+export interface ReconciliationRunView {
+  id: string;
+  runAt: string;
+  treasuryBalanceExpected: number;
+  treasuryBalanceActual: number;
+  treasuryDrift: number;
+  referralPoolExpected: number;
+  referralPoolActual: number;
+  referralPoolDrift: number;
+  incentivePoolExpected: number;
+  incentivePoolActual: number;
+  incentivePoolDrift: number;
+  hasDiscrepancy: boolean;
+  triggeredBy: ReconciliationTrigger;
+}
+
+export interface LevelQueueHealth {
+  levelId: string;
+  levelName: string;
+  isActive: boolean;
+  waitingCount: number;
+  oldestWaitingAgeDays: number | null;
+  stalledCount: number;
+  stalledThresholdDays: number;
+  completedCount: number;
+  avgCompletionDays: number | null;
+}
+
+export interface FlaggedUser {
+  id: string;
+  fullName: string;
+  phone: string;
+}
+
+export interface SharedBankDetailsFlag {
+  accountNumber: string;
+  bankName: string;
+  users: FlaggedUser[];
+}
+
+export interface ReferralBurstFlag {
+  referrer: FlaggedUser;
+  windowStart: string;
+  referredCount: number;
+  referredUsers: FlaggedUser[];
+}
+
+export interface FraudFlagsSummary {
+  sharedBankDetails: SharedBankDetailsFlag[];
+  referralBursts: ReferralBurstFlag[];
+}
+
+// ---------------------------------------------------------------------------------------
+// Support Chat (personal chatroom with admin)
+// ---------------------------------------------------------------------------------------
+
+export type SupportConversationStatus = "OPEN" | "RESOLVED";
+export type SupportMessageSenderRole = "USER" | "ADMIN";
+
+export interface SupportMessageView {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderRole: SupportMessageSenderRole;
+  body: string;
+  createdAt: string;
+}
+
+export interface SupportConversationView {
+  id: string;
+  status: SupportConversationStatus;
+  lastMessageAt: string;
+  lastMessagePreview: string;
+  lastMessageSenderRole: SupportMessageSenderRole;
+  hasUnread: boolean;
+}
+
+export interface AdminSupportConversationView extends SupportConversationView {
+  userId: string;
+  userFullName: string;
+  userPhone: string;
+  resolvedAt: string | null;
+}
+
+export interface AdminSupportConversationPage {
+  conversations: AdminSupportConversationView[];
+  total: number;
 }

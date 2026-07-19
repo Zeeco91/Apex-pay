@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 interface DisputeResolutionActionProps {
@@ -13,6 +13,8 @@ export function DisputeResolutionAction({ onConfirm }: DisputeResolutionActionPr
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const notesId = useId();
+  const errorId = useId();
 
   if (!open) {
     return (
@@ -42,34 +44,47 @@ export function DisputeResolutionAction({ onConfirm }: DisputeResolutionActionPr
 
   return (
     <div className="flex min-w-[280px] flex-col gap-2 rounded-xl border border-border bg-surface p-3">
-      <p className="text-xs font-medium text-foreground">Resolution</p>
-      <div className="flex gap-3 text-xs">
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={resolution === "CONFIRMED"}
-            onChange={() => setResolution("CONFIRMED")}
-          />
-          Side with transaction (confirm)
-        </label>
-        <label className="flex items-center gap-1.5">
-          <input
-            type="radio"
-            checked={resolution === "REJECTED"}
-            onChange={() => setResolution("REJECTED")}
-          />
-          Side with dispute (void)
-        </label>
-      </div>
-      <label className="text-xs font-medium text-foreground">Investigation notes</label>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="text-xs font-medium text-foreground">Resolution</legend>
+        <div className="flex gap-3 text-xs">
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="resolution"
+              checked={resolution === "CONFIRMED"}
+              onChange={() => setResolution("CONFIRMED")}
+            />
+            Side with transaction (confirm)
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="resolution"
+              checked={resolution === "REJECTED"}
+              onChange={() => setResolution("REJECTED")}
+            />
+            Side with dispute (void)
+          </label>
+        </div>
+      </fieldset>
+      <label htmlFor={notesId} className="text-xs font-medium text-foreground">
+        Investigation notes
+      </label>
       <textarea
+        id={notesId}
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         rows={3}
         className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         placeholder="What did you find, and why this resolution?"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
       />
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? (
+        <p id={errorId} className="text-xs text-danger">
+          {error}
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <Button
           variant="primary"

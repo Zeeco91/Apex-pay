@@ -298,8 +298,11 @@ export default function AdminReferralsPage() {
             </p>
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-foreground">Date</label>
+                <label htmlFor="new-holiday-date" className="text-xs font-medium text-foreground">
+                  Date
+                </label>
                 <input
+                  id="new-holiday-date"
                   type="date"
                   value={newHolidayDate}
                   onChange={(e) => setNewHolidayDate(e.target.value)}
@@ -307,8 +310,11 @@ export default function AdminReferralsPage() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-foreground">Name</label>
+                <label htmlFor="new-holiday-name" className="text-xs font-medium text-foreground">
+                  Name
+                </label>
                 <input
+                  id="new-holiday-name"
                   type="text"
                   value={newHolidayName}
                   onChange={(e) => setNewHolidayName(e.target.value)}

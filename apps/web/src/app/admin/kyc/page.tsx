@@ -77,6 +77,7 @@ export default function AdminKycPage() {
       </div>
 
       <select
+        aria-label="Filter by KYC status"
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value as KycStatus | "")}
         className="w-fit rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground"

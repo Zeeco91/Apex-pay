@@ -46,8 +46,13 @@ export class AuditLogService {
   async list(filters: {
     targetEntityType?: string;
     adminUserId?: string;
-  }): Promise<
-    {
+    actionType?: AdminActionType;
+    createdAtFrom?: Date;
+    createdAtTo?: Date;
+    take?: number;
+    skip?: number;
+  }): Promise<{
+    entries: {
       id: string;
       adminUserId: string;
       adminFullName: string;
@@ -58,29 +63,48 @@ export class AuditLogService {
       beforeState: unknown;
       afterState: unknown;
       createdAt: Date;
-    }[]
-  > {
-    const logs = await this.prisma.adminAuditLog.findMany({
-      where: {
-        targetEntityType: filters.targetEntityType,
-        adminUserId: filters.adminUserId,
-      },
-      include: { adminUser: true },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
-    return logs.map((log) => ({
-      id: log.id,
-      adminUserId: log.adminUserId,
-      adminFullName: log.adminUser.fullName,
-      actionType: log.actionType,
-      targetEntityType: log.targetEntityType,
-      targetEntityId: log.targetEntityId,
-      reason: log.reason,
-      beforeState: log.beforeState,
-      afterState: log.afterState,
-      createdAt: log.createdAt,
-    }));
+    }[];
+    total: number;
+  }> {
+    const where: Prisma.AdminAuditLogWhereInput = {
+      targetEntityType: filters.targetEntityType,
+      adminUserId: filters.adminUserId,
+      actionType: filters.actionType,
+      createdAt:
+        filters.createdAtFrom || filters.createdAtTo
+          ? { gte: filters.createdAtFrom, lte: filters.createdAtTo }
+          : undefined,
+    };
+
+    const take = Math.min(filters.take ?? 50, 200);
+    const skip = filters.skip ?? 0;
+
+    const [logs, total] = await Promise.all([
+      this.prisma.adminAuditLog.findMany({
+        where,
+        include: { adminUser: true },
+        orderBy: { createdAt: 'desc' },
+        take,
+        skip,
+      }),
+      this.prisma.adminAuditLog.count({ where }),
+    ]);
+
+    return {
+      entries: logs.map((log) => ({
+        id: log.id,
+        adminUserId: log.adminUserId,
+        adminFullName: log.adminUser.fullName,
+        actionType: log.actionType,
+        targetEntityType: log.targetEntityType,
+        targetEntityId: log.targetEntityId,
+        reason: log.reason,
+        beforeState: log.beforeState,
+        afterState: log.afterState,
+        createdAt: log.createdAt,
+      })),
+      total,
+    };
   }
 }
 

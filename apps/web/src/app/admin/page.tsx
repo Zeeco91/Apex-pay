@@ -37,9 +37,24 @@ const SECTIONS = [
     description: "Edit contribution amounts, fee splits, and incentive rates per level.",
   },
   {
+    href: "/admin/queue-health",
+    title: "Queue Health",
+    description: "Per-level wait times, stalled entries, and completion trends.",
+  },
+  {
+    href: "/admin/fraud-flags",
+    title: "Fraud Flags",
+    description: "Shared payout accounts and referral-burst heuristics for human review.",
+  },
+  {
+    href: "/admin/reconciliation",
+    title: "Reconciliation",
+    description: "Daily drift checks between the ledger and running pot/pool balances.",
+  },
+  {
     href: "/admin/audit-log",
     title: "Audit Log",
-    description: "Raw trail of every adverse or discretionary admin action.",
+    description: "Searchable trail of every adverse or discretionary admin action.",
   },
 ];
 

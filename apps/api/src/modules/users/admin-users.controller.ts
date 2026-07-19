@@ -7,7 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { KycStatus, UserStatus } from '@prisma/client';
+import type { KycStatus, UserRole, UserStatus } from '@prisma/client';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -30,11 +30,13 @@ export class AdminUsersController {
   async list(
     @Query('status') status?: UserStatus,
     @Query('kycStatus') kycStatus?: KycStatus,
+    @Query('role') role?: UserRole,
     @Query('search') search?: string,
   ) {
     const data = await this.usersService.listForAdmin({
       status,
       kycStatus,
+      role,
       search,
     });
     return { success: true, data };

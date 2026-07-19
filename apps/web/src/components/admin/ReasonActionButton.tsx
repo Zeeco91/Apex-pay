@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 interface ReasonActionButtonProps {
@@ -33,6 +33,8 @@ export function ReasonActionButton({
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textareaId = useId();
+  const errorId = useId();
 
   if (!open) {
     return (
@@ -62,18 +64,25 @@ export function ReasonActionButton({
 
   return (
     <div className="flex min-w-[240px] flex-col gap-2 rounded-xl border border-border bg-surface p-3">
-      <label className="text-xs font-medium text-foreground">
+      <label htmlFor={textareaId} className="text-xs font-medium text-foreground">
         {reasonLabel}
         {reasonRequired ? "" : " (optional)"}
       </label>
       <textarea
+        id={textareaId}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         rows={2}
         className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         placeholder={placeholder}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
       />
-      {error ? <p className="text-xs text-danger">{error}</p> : null}
+      {error ? (
+        <p id={errorId} className="text-xs text-danger">
+          {error}
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <Button
           variant={variant}

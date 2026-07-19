@@ -10,7 +10,20 @@ import type { KycStatus, User, UserRole, UserStatus } from '@prisma/client';
 
 const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — avoids user transcription errors
 
-export type PublicUser = Omit<User, 'pinHash' | 'deviceFingerprints'>;
+// Brute-force protection for PIN login (plan §10) — backs up the per-IP throttle on the login
+// route with a per-account lock, since a 4-digit PIN's keyspace is small enough that a
+// distributed/rotating-IP attacker could otherwise bypass IP-based rate limiting entirely.
+const MAX_FAILED_PIN_ATTEMPTS = 5;
+const PIN_LOCKOUT_MINUTES = 15;
+
+export type PublicUser = Omit<
+  User,
+  | 'pinHash'
+  | 'deviceFingerprints'
+  | 'mfaSecret'
+  | 'failedPinAttempts'
+  | 'pinLockedUntil'
+>;
 
 export interface PayoutBankDetails {
   bankName: string;
@@ -33,6 +46,7 @@ export function toPublicUser(user: User): PublicUser {
     status: user.status,
     kycStatus: user.kycStatus,
     payoutBankDetails: user.payoutBankDetails,
+    mfaEnabled: user.mfaEnabled,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     lastLoginAt: user.lastLoginAt,
@@ -104,6 +118,37 @@ export class UsersService {
     await this.prisma.user.update({ where: { id: userId }, data: { pinHash } });
   }
 
+  isPinLocked(user: Pick<User, 'pinLockedUntil'>): boolean {
+    return !!user.pinLockedUntil && user.pinLockedUntil > new Date();
+  }
+
+  /** Call after a failed PIN attempt. Locks the account once the threshold is reached. */
+  async recordFailedPinAttempt(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { failedPinAttempts: true },
+    });
+    const attempts = user.failedPinAttempts + 1;
+    const lockingNow = attempts >= MAX_FAILED_PIN_ATTEMPTS;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        failedPinAttempts: lockingNow ? 0 : attempts,
+        pinLockedUntil: lockingNow
+          ? new Date(Date.now() + PIN_LOCKOUT_MINUTES * 60_000)
+          : undefined,
+      },
+    });
+  }
+
+  /** Call after a successful PIN check to clear any accumulated failure count. */
+  async resetPinAttempts(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { failedPinAttempts: 0, pinLockedUntil: null },
+    });
+  }
+
   async updatePayoutBankDetails(
     userId: string,
     details: PayoutBankDetails,
@@ -121,12 +166,14 @@ export class UsersService {
   async listForAdmin(filters: {
     status?: UserStatus;
     kycStatus?: KycStatus;
+    role?: UserRole;
     search?: string;
   }): Promise<AdminUserSummary[]> {
     const users = await this.prisma.user.findMany({
       where: {
         status: filters.status,
         kycStatus: filters.kycStatus,
+        role: filters.role,
         ...(filters.search
           ? {
               OR: [

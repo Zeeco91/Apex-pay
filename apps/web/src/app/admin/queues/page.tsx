@@ -115,6 +115,7 @@ export default function AdminQueuesPage() {
       </div>
 
       <select
+        aria-label="Select level"
         value={levelId}
         onChange={(e) => {
           setLevelId(e.target.value);

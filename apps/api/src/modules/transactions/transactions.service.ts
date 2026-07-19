@@ -312,7 +312,7 @@ export class TransactionsService {
       );
 
       return this.loadAdminSummary(tx, transaction.id);
-    });
+    }, EXTENDED_TX_OPTIONS);
   }
 
   async disburse(

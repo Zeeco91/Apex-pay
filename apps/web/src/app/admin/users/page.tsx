@@ -88,12 +88,14 @@ export default function AdminUsersPage() {
 
       <div className="flex flex-wrap gap-3">
         <input
+          aria-label="Search name or phone"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name or phone"
           className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         />
         <select
+          aria-label="Filter by status"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as UserStatus | "")}
           className="rounded-lg border border-border bg-background px-4 py-2 text-sm text-foreground"
