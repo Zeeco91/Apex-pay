@@ -17,7 +17,12 @@ const NAV_ITEMS = [
   { href: "/admin/treasury", label: "Treasury" },
   { href: "/admin/referrals", label: "Referrals" },
   { href: "/admin/levels", label: "Levels" },
+  { href: "/admin/queue-health", label: "Queue Health" },
+  { href: "/admin/fraud-flags", label: "Fraud Flags" },
+  { href: "/admin/reconciliation", label: "Reconciliation" },
+  { href: "/admin/support", label: "Support" },
   { href: "/admin/audit-log", label: "Audit Log" },
+  { href: "/admin/mfa-setup", label: "Security" },
 ];
 
 /**
@@ -25,20 +30,33 @@ const NAV_ITEMS = [
  * the real boundary is server-side RolesGuard on every /admin/* API route; this just keeps a
  * non-admin from seeing an admin-shaped page full of 403s.
  */
+const MFA_SETUP_PATH = "/admin/mfa-setup";
+
 export function AdminShell({ children }: { children: ReactNode }) {
   const { status, user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const isMfaSetupRoute = pathname === MFA_SETUP_PATH;
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/login");
-    } else if (status === "authenticated" && user && user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
-      router.replace("/dashboard");
+    } else if (status === "authenticated" && user) {
+      if (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN") {
+        router.replace("/dashboard");
+      } else if (!user.mfaEnabled && !isMfaSetupRoute) {
+        // Admin trust model hardening (plan §10) — MFA is mandatory before touching any admin
+        // feature, enforced again server-side by RolesGuard on every /admin/* API route.
+        router.replace(MFA_SETUP_PATH);
+      }
     }
-  }, [status, user, router]);
+  }, [status, user, router, isMfaSetupRoute]);
 
-  const isAuthorizedAdmin = status === "authenticated" && user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN");
+  const isAuthorizedAdmin =
+    status === "authenticated" &&
+    user &&
+    (user.role === "ADMIN" || user.role === "SUPER_ADMIN") &&
+    (user.mfaEnabled || isMfaSetupRoute);
 
   if (!isAuthorizedAdmin) {
     return (

@@ -9,6 +9,11 @@ const envSchema = z.object({
     .string()
     .url({ message: 'DATABASE_URL must be a valid connection string' }),
 
+  // Comma-separated list of allowed frontend origins in production (e.g.
+  // "https://apexpay.example,https://admin.apexpay.example"). Left unset in development, where
+  // main.ts falls back to a fixed localhost/tunnel allowlist instead.
+  CORS_ORIGINS: z.string().optional(),
+
   // Auth
   JWT_ACCESS_SECRET: z
     .string()

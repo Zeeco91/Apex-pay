@@ -8,6 +8,7 @@
 // Phase 7 (Referral Program & Level Incentive Bonus) added: FeePool, PublicHoliday,
 // ReferralBonus, LevelIncentiveBonus, WithdrawalRequest.
 // Phase 8 (Admin Panel Core) adds: AdminAuditLog.
+// Phase 9 (Admin Reporting & Treasury Reconciliation) adds: ReconciliationRun.
 
 generator client {
   provider = "prisma-client-js"
@@ -134,6 +135,17 @@ enum AdminActionType {
   WITHDRAWAL_PAID
   PUBLIC_HOLIDAY_ADDED
   PUBLIC_HOLIDAY_REMOVED
+  SUPPORT_CONVERSATION_RESOLVED
+}
+
+enum SupportConversationStatus {
+  OPEN
+  RESOLVED
+}
+
+enum SupportMessageSenderRole {
+  USER
+  ADMIN
 }
 
 model User {
@@ -155,6 +167,16 @@ model User {
   updatedAt          DateTime   @updatedAt
   lastLoginAt        DateTime?
 
+  // Brute-force protection on PIN login (plan §10 hardening) — a 4-digit PIN is a small
+  // keyspace, so per-account lockout backs up the per-IP throttle on the login route.
+  failedPinAttempts Int       @default(0)
+  pinLockedUntil    DateTime?
+
+  // TOTP-based MFA (plan §10: "MFA enforcement" for the admin trust model). Enforced for
+  // ADMIN/SUPER_ADMIN via RolesGuard — see mfa.service.ts and roles.guard.ts.
+  mfaSecret  String?
+  mfaEnabled Boolean @default(false)
+
   kycRecords    KycRecord[]
   refreshTokens RefreshToken[]
   queueEntries  QueueEntry[]
@@ -169,6 +191,12 @@ model User {
   levelIncentiveBonuses LevelIncentiveBonus[]
   withdrawalRequests    WithdrawalRequest[]
   adminAuditLogs        AdminAuditLog[]
+
+  // A user's single ongoing support thread (created lazily on first message) plus every
+  // message they've personally sent, whether as the USER side of their own conversation or
+  // as the ADMIN replying into someone else's — see SupportMessage.senderId.
+  supportConversation SupportConversation?
+  supportMessagesSent SupportMessage[]
 
   @@index([status])
 }
@@ -386,6 +414,34 @@ model FeePool {
   updatedAt              DateTime    @updatedAt
 }
 
+// One row per reconciliation pass (daily cron + on-demand admin trigger). Recomputes each
+// balance from its ledger history independently of the running counters (TreasuryBalance.balance,
+// FeePool.currentBalance) and records any drift — the running counters are updated atomically
+// alongside every ledger write, so in a healthy system drift should always be zero; a nonzero
+// value here is the signal that something (a bug, a manual DB edit) broke that invariant.
+model ReconciliationRun {
+  id                      String                @id @default(uuid())
+  runAt                   DateTime              @default(now())
+  treasuryBalanceExpected Int
+  treasuryBalanceActual   Int
+  treasuryDrift           Int
+  referralPoolExpected    Int
+  referralPoolActual      Int
+  referralPoolDrift       Int
+  incentivePoolExpected   Int
+  incentivePoolActual     Int
+  incentivePoolDrift      Int
+  hasDiscrepancy          Boolean
+  triggeredBy             ReconciliationTrigger
+
+  @@index([runAt])
+}
+
+enum ReconciliationTrigger {
+  SCHEDULED
+  MANUAL
+}
+
 // Maintained calendar for the referral bonus hold period's "30 working days" calculation
 // (plan §5). Seeded with a starter set of Nigerian public holidays; a real admin-editable
 // surface arrives with the Admin Panel Core phase.
@@ -510,4 +566,53 @@ model AdminAuditLog {
 
   @@index([targetEntityType, targetEntityId])
   @@index([adminUserId, createdAt])
+}
+
+// One persistent support thread per user (the "personal chatroom" — plan phase 11), created
+// lazily on that user's first message. lastMessage* fields are a deliberate denormalization:
+// they let the admin inbox list render (including per-row "unread" state) without an N+1 query
+// or a per-row COUNT — SupportChatService keeps them in sync inside the same transaction as
+// every SupportMessage insert. Unread is derived, not stored as a counter, to avoid drift:
+// unread-for-admin = lastMessageSenderRole is USER and lastMessageAt is after adminLastReadAt.
+model SupportConversation {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  status SupportConversationStatus @default(OPEN)
+
+  lastMessageAt         DateTime                 @default(now())
+  lastMessagePreview    String
+  lastMessageSenderRole SupportMessageSenderRole
+
+  // Null adminLastReadAt means no admin has ever opened this conversation yet.
+  userLastReadAt  DateTime  @default(now())
+  adminLastReadAt DateTime?
+
+  resolvedByAdminId String?
+  resolvedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages SupportMessage[]
+
+  @@index([status, lastMessageAt])
+}
+
+model SupportMessage {
+  id             String              @id @default(uuid())
+  conversationId String
+  conversation   SupportConversation @relation(fields: [conversationId], references: [id])
+  senderId       String
+  sender         User                @relation(fields: [senderId], references: [id])
+
+  // Snapshot at send time rather than derived from sender.role — a user's role never changes
+  // in practice, but this keeps message history stable even if it did, and avoids a join.
+  senderRole SupportMessageSenderRole
+  body       String
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
 }

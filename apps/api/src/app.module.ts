@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { DEFAULT_THROTTLE_LIMIT } from './common/throttle.constants';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
@@ -16,6 +18,10 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
 import { AuditLogModule } from './common/audit-log/audit-log.module';
 import { PublicHolidaysModule } from './modules/public-holidays/public-holidays.module';
+import { ReconciliationModule } from './modules/reconciliation/reconciliation.module';
+import { QueueHealthModule } from './modules/queue-health/queue-health.module';
+import { FraudFlagsModule } from './modules/fraud-flags/fraud-flags.module';
+import { SupportChatModule } from './modules/support-chat/support-chat.module';
 
 @Module({
   imports: [
@@ -23,7 +29,10 @@ import { PublicHolidaysModule } from './modules/public-holidays/public-holidays.
       isGlobal: true,
       validate: validateEnv,
     }),
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 20 }]),
+    ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot([
+      { name: 'default', ttl: 60_000, limit: DEFAULT_THROTTLE_LIMIT },
+    ]),
     PrismaModule,
     CryptoModule,
     SmsModule,
@@ -37,6 +46,10 @@ import { PublicHolidaysModule } from './modules/public-holidays/public-holidays.
     ReferralsModule,
     AuditLogModule,
     PublicHolidaysModule,
+    ReconciliationModule,
+    QueueHealthModule,
+    FraudFlagsModule,
+    SupportChatModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
