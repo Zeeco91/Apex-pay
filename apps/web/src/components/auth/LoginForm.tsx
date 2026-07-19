@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { login } from "@/lib/api/auth";
+import { login, mfaLoginVerify } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -15,11 +15,13 @@ export function LoginForm() {
 
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
+  const [mfaPendingToken, setMfaPendingToken] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleCredentialsSubmit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
 
@@ -31,9 +33,13 @@ export function LoginForm() {
 
     setIsSubmitting(true);
     try {
-      const { user, accessToken } = await login({ phone, pin });
-      setSession(user, accessToken);
-      router.push("/dashboard");
+      const result = await login({ phone, pin });
+      if (result.mfaRequired) {
+        setMfaPendingToken(result.mfaPendingToken);
+      } else {
+        setSession(result.user, result.accessToken);
+        router.push("/dashboard");
+      }
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Couldn't log you in. Please try again.");
     } finally {
@@ -41,8 +47,71 @@ export function LoginForm() {
     }
   }
 
+  async function handleMfaSubmit(event: FormEvent) {
+    event.preventDefault();
+    setFormError(null);
+    if (!mfaPendingToken) return;
+    if (!/^\d{6}$/.test(mfaCode)) {
+      setFieldErrors({ mfaCode: "Enter the 6-digit code from your authenticator app." });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { user, accessToken } = await mfaLoginVerify(mfaPendingToken, mfaCode);
+      setSession(user, accessToken);
+      router.push("/dashboard");
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Couldn't verify that code. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (mfaPendingToken) {
+    return (
+      <form onSubmit={handleMfaSubmit} noValidate className="flex flex-col gap-5">
+        <p className="text-sm text-muted">
+          Enter the 6-digit code from your authenticator app to finish logging in.
+        </p>
+        <Input
+          label="Authentication code"
+          name="mfaCode"
+          type="text"
+          inputMode="numeric"
+          maxLength={6}
+          autoComplete="one-time-code"
+          autoFocus
+          value={mfaCode}
+          onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, ""))}
+          placeholder="123456"
+          error={fieldErrors.mfaCode}
+        />
+        {formError && (
+          <div role="alert" className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">
+            {formError}
+          </div>
+        )}
+        <Button type="submit" isLoading={isSubmitting}>
+          {isSubmitting ? "Verifying…" : "Verify and log in"}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setMfaPendingToken(null);
+            setMfaCode("");
+            setFormError(null);
+          }}
+          className="text-center text-sm font-medium text-muted hover:text-foreground"
+        >
+          Back
+        </button>
+      </form>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+    <form onSubmit={handleCredentialsSubmit} noValidate className="flex flex-col gap-5">
       <Input
         label="Phone number"
         name="phone"

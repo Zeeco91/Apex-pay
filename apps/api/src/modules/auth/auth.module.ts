@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
 import { TokenService } from './token.service';
+import { MfaService } from './mfa.service';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import type { Env } from '../../config/env.validation';
 
@@ -26,7 +27,13 @@ import type { Env } from '../../config/env.validation';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, OtpService, TokenService, JwtAccessStrategy],
+  providers: [
+    AuthService,
+    OtpService,
+    TokenService,
+    MfaService,
+    JwtAccessStrategy,
+  ],
   exports: [TokenService],
 })
 export class AuthModule {}

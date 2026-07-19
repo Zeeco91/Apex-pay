@@ -8,6 +8,10 @@ export interface AuthResult {
   accessToken: string;
 }
 
+export type LoginResult =
+  | { mfaRequired: true; mfaPendingToken: string }
+  | ({ mfaRequired: false } & AuthResult);
+
 export function requestOtp(phone: string, purpose: OtpPurpose): Promise<{ success: true }> {
   return apiFetch("/auth/otp/request", { method: "POST", body: { phone, purpose } });
 }
@@ -29,12 +33,38 @@ export async function registerUser(params: {
   return res.data;
 }
 
-export async function login(params: { phone: string; pin: string }): Promise<AuthResult> {
-  const res = await apiFetch<{ success: true; data: AuthResult }>("/auth/login", {
+export async function login(params: { phone: string; pin: string }): Promise<LoginResult> {
+  const res = await apiFetch<{ success: true; data: LoginResult }>("/auth/login", {
     method: "POST",
     body: params,
   });
   return res.data;
+}
+
+export async function mfaLoginVerify(mfaPendingToken: string, code: string): Promise<AuthResult> {
+  const res = await apiFetch<{ success: true; data: AuthResult }>("/auth/mfa/login-verify", {
+    method: "POST",
+    body: { mfaPendingToken, code },
+  });
+  return res.data;
+}
+
+export async function beginMfaSetup(
+  accessToken: string,
+): Promise<{ secret: string; otpauthUrl: string }> {
+  const res = await apiFetch<{ success: true; data: { secret: string; otpauthUrl: string } }>(
+    "/auth/mfa/setup",
+    { method: "POST", accessToken },
+  );
+  return res.data;
+}
+
+export function confirmMfaSetup(accessToken: string, code: string): Promise<{ success: true }> {
+  return apiFetch("/auth/mfa/verify-setup", { method: "POST", accessToken, body: { code } });
+}
+
+export function disableMfa(accessToken: string, code: string): Promise<{ success: true }> {
+  return apiFetch("/auth/mfa/disable", { method: "POST", accessToken, body: { code } });
 }
 
 export async function refreshSession(): Promise<{ accessToken: string }> {

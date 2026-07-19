@@ -21,6 +21,15 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: AccessTokenPayload): Promise<AuthenticatedUser> {
+    // MFA pending tokens (mfa.service.ts) are signed with this same secret so they can be
+    // verified without a second JwtModule registration, but they must NEVER be usable as a
+    // real bearer credential — they carry a `purpose` claim that a genuine access token never
+    // has, so any token bearing one is rejected here, at the one chokepoint every authenticated
+    // request passes through, regardless of which specific route or guard it's aimed at.
+    if ('purpose' in payload) {
+      throw new UnauthorizedException('Invalid access token');
+    }
+
     const user = await this.usersService.findById(payload.sub);
     if (!user || user.status === 'BANNED' || user.status === 'SUSPENDED') {
       throw new UnauthorizedException('Account is not active');

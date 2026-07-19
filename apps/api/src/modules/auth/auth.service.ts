@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -12,6 +14,7 @@ import {
 } from '../users/users.service';
 import { OtpService } from './otp.service';
 import { TokenService, type IssuedTokens } from './token.service';
+import { MfaService } from './mfa.service';
 import { normalizePhoneOrThrow } from '../../common/phone/phone.util';
 
 const OTP_PROOF_VALIDITY_MINUTES = 15;
@@ -21,6 +24,10 @@ export interface RequestMeta {
   deviceInfo?: string;
 }
 
+export type LoginResult =
+  | { mfaRequired: true; mfaPendingToken: string }
+  | { mfaRequired: false; user: PublicUser; tokens: IssuedTokens };
+
 export type { PublicUser };
 
 @Injectable()
@@ -29,6 +36,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly otpService: OtpService,
     private readonly tokenService: TokenService,
+    private readonly mfaService: MfaService,
   ) {}
 
   async requestOtp(
@@ -104,7 +112,7 @@ export class AuthService {
   async login(
     params: { phone: string; pin: string },
     meta: RequestMeta,
-  ): Promise<{ user: PublicUser; tokens: IssuedTokens }> {
+  ): Promise<LoginResult> {
     const phone = normalizePhoneOrThrow(params.phone);
     const user = await this.usersService.findByPhone(phone);
 
@@ -118,9 +126,47 @@ export class AuthService {
         'This account is not active — contact support',
       );
     }
+    if (this.usersService.isPinLocked(user)) {
+      throw new HttpException(
+        'Too many failed PIN attempts. Please try again in 15 minutes, or reset your PIN.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
     const pinValid = await argon2.verify(user.pinHash, params.pin);
-    if (!pinValid) throw invalidCredentials();
+    if (!pinValid) {
+      await this.usersService.recordFailedPinAttempt(user.id);
+      throw invalidCredentials();
+    }
+    await this.usersService.resetPinAttempts(user.id);
+
+    if (user.mfaEnabled) {
+      // PIN alone was correct, but a second factor is still required before real session
+      // tokens are issued — updateLastLogin/issueTokens happen only in verifyMfaAndLogin below.
+      return {
+        mfaRequired: true,
+        mfaPendingToken: this.mfaService.issuePendingToken(user.id),
+      };
+    }
+
+    await this.usersService.updateLastLogin(user.id);
+    const tokens = await this.tokenService.issueTokens(user, meta);
+    return { mfaRequired: false, user: toPublicUser(user), tokens };
+  }
+
+  async verifyMfaAndLogin(
+    mfaPendingToken: string,
+    code: string,
+    meta: RequestMeta,
+  ): Promise<{ user: PublicUser; tokens: IssuedTokens }> {
+    const userId = this.mfaService.verifyPendingToken(mfaPendingToken);
+    const codeValid = await this.mfaService.verifyCodeForUser(userId, code);
+    if (!codeValid) {
+      throw new UnauthorizedException('Invalid or expired code.');
+    }
+
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('Account no longer exists.');
 
     await this.usersService.updateLastLogin(user.id);
     const tokens = await this.tokenService.issueTokens(user, meta);
@@ -165,6 +211,7 @@ export class AuthService {
 
     const pinHash = await argon2.hash(params.newPin, { type: argon2.argon2id });
     await this.usersService.updatePin(user.id, pinHash);
+    await this.usersService.resetPinAttempts(user.id);
     // Force re-login everywhere after a security-sensitive PIN reset.
     await this.tokenService.revokeAllForUser(user.id);
   }
