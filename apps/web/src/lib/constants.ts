@@ -65,7 +65,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "faq-is-investment",
     question: "Is APEX PAY an investment?",
     answer:
-      "No. APEX PAY is a contribution-based savings queue, not an investment product. You receive back exactly what you contributed, minus a small platform fee — never more than your principal from the core savings mechanism. Any level-based bonus is a separate, capped incentive funded only from platform fee revenue, never guaranteed.",
+      "Not in the way that word usually means. APEX PAY is a contribution-based savings queue, not an investment product — we never promise a fixed rate of return. The \"return\" you get is your full contribution paid back to you, minus a small platform fee, plus an optional level-based bonus if your level offers one. That bonus is capped, funded only from platform fee revenue, and never guaranteed — see \"What is the level-based incentive bonus?\" below.",
   },
   {
     id: "faq-payout-timing",

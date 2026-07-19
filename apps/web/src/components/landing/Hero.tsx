@@ -37,8 +37,7 @@ export function Hero() {
         </div>
 
         <p className="mt-8 max-w-xl text-sm text-muted">
-          You always receive back exactly what you contribute, minus a small
-          platform fee.{" "}
+          You always get a return on what you contribute.{" "}
           <a
             href="#faq-is-investment"
             className="font-medium text-primary underline underline-offset-4"
