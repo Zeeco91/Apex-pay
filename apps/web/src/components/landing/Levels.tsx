@@ -28,7 +28,6 @@ export function Levels() {
               <span className="mt-2 text-3xl font-bold text-foreground">
                 {formatNaira(level.amount)}
               </span>
-              <span className="mt-3 text-sm text-muted">{level.incentiveNote}</span>
               <ButtonLink
                 href="/register"
                 variant="outline"

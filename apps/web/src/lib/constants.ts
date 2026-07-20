@@ -11,16 +11,15 @@ export type Level = {
   id: string;
   name: string;
   amount: number;
-  incentiveNote: string;
 };
 
 export const LEVELS: Level[] = [
-  { id: "level-1", name: "Bronze", amount: 5_000, incentiveNote: "Entry level" },
-  { id: "level-2", name: "Silver", amount: 10_000, incentiveNote: "Small bonus pool access" },
-  { id: "level-3", name: "Gold", amount: 20_000, incentiveNote: "Higher bonus pool access" },
-  { id: "level-4", name: "Platinum", amount: 50_000, incentiveNote: "Priority queue benefits" },
-  { id: "level-5", name: "Diamond", amount: 100_000, incentiveNote: "Priority queue benefits" },
-  { id: "level-6", name: "Diamond Elite", amount: 200_000, incentiveNote: "Highest bonus pool access" },
+  { id: "level-1", name: "Bronze", amount: 5_000 },
+  { id: "level-2", name: "Silver", amount: 10_000 },
+  { id: "level-3", name: "Gold", amount: 20_000 },
+  { id: "level-4", name: "Platinum", amount: 50_000 },
+  { id: "level-5", name: "Diamond", amount: 100_000 },
+  { id: "level-6", name: "Diamond Elite", amount: 200_000 },
 ];
 
 export function formatNaira(amount: number): string {
