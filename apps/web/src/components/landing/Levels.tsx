@@ -33,7 +33,7 @@ export function Levels() {
                 variant="primary"
                 className="mt-6 w-full justify-center"
               >
-                Join this level
+                JOIN LEVEL
               </ButtonLink>
             </div>
           ))}
