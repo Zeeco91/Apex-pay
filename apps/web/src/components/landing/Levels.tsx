@@ -30,7 +30,7 @@ export function Levels() {
               </span>
               <ButtonLink
                 href="/register"
-                variant="outline"
+                variant="primary"
                 className="mt-6 w-full justify-center"
               >
                 Join this level
