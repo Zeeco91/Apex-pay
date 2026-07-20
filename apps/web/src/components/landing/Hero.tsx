@@ -22,9 +22,9 @@ export function Hero() {
         </h1>
 
         <p className="mt-6 max-w-2xl text-lg leading-8 text-muted">
-          APEX PAY organizes members into contribution queues by savings level.
-          Contribute once, and you receive your full contribution back when it&apos;s
-          your turn — no guessing games, no promises of returns you didn&apos;t put in.
+          APEX PAY organizes members into contribution queues by savings level —
+          you get your full investment back when it&apos;s your turn, no guessing
+          games.
         </p>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">

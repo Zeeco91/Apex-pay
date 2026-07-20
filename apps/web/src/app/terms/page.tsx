@@ -15,13 +15,15 @@ export default function TermsPage() {
         <p>
           APEX PAY is a contribution-based savings queue. You choose a savings level, contribute that level&apos;s
           fixed amount, and are matched in turn with another member so that contributions and payouts move
-          through the queue in order. <strong>APEX PAY is not an investment product and does not promise a
-          fixed rate of return.</strong> Under the core savings mechanism, you always receive back exactly what
-          you contributed, minus a platform fee. Depending on your level, you may also receive an additional
-          level incentive bonus — a separate, capped benefit funded only from platform fee revenue and never
-          guaranteed, described further in Section 5. Wherever this site refers to a &quot;return,&quot; it means
-          your contribution being paid back to you, plus this optional bonus where your level offers one —
-          never a promised investment return.
+          through the queue in order. Some members refer to their contribution informally as their
+          &quot;investment,&quot; but <strong>APEX PAY does not operate like a traditional investment product and
+          does not promise a fixed or guaranteed rate of return.</strong> Under the core savings mechanism, you
+          always receive back exactly what you contributed, minus a platform fee. Depending on your level, you
+          may also receive an additional level incentive bonus — a separate, capped benefit funded only from
+          platform fee revenue and never guaranteed, described further in Section 5. Wherever this site refers
+          to your contribution being &quot;returned&quot; or getting your &quot;investment back,&quot; it means
+          exactly that: your original contribution paid back to you, plus this optional bonus where your level
+          offers one — never a promised profit, interest, or guaranteed additional return.
         </p>
       </LegalSection>
 
