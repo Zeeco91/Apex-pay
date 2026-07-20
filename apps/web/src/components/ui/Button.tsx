@@ -1,7 +1,7 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
 import { Spinner } from "./Spinner";
 
-type ButtonVariant = "primary" | "secondary" | "outline";
+type ButtonVariant = "primary" | "secondary" | "outline" | "inverse";
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
@@ -10,6 +10,10 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     "bg-accent text-accent-foreground hover:bg-accent-hover",
   outline:
     "border border-border text-foreground hover:bg-surface",
+  // For use on a solid-primary-colored surface (e.g. a highlighted pricing card) — inverts
+  // the primary button so it stays legible against a background that's already bg-primary.
+  inverse:
+    "bg-background text-primary hover:bg-surface",
 };
 
 const BASE_CLASSES =

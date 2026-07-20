@@ -20,17 +20,17 @@ export function Levels() {
           {LEVELS.map((level) => (
             <div
               key={level.id}
-              className="flex flex-col rounded-2xl border border-border bg-background p-6 shadow-sm"
+              className="flex flex-col rounded-2xl bg-primary p-6 shadow-sm"
             >
-              <span className="text-sm font-semibold uppercase tracking-wide text-muted">
+              <span className="text-sm font-semibold uppercase tracking-wide text-primary-foreground/70">
                 {level.name}
               </span>
-              <span className="mt-2 text-3xl font-bold text-primary">
+              <span className="mt-2 text-3xl font-bold text-primary-foreground">
                 {formatNaira(level.amount)}
               </span>
               <ButtonLink
                 href="/register"
-                variant="outline"
+                variant="inverse"
                 className="mt-6 w-full justify-center"
               >
                 Join this level
