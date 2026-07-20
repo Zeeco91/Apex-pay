@@ -12,8 +12,12 @@ export type LoginResult =
   | { mfaRequired: true; mfaPendingToken: string }
   | ({ mfaRequired: false } & AuthResult);
 
-export function requestOtp(phone: string, purpose: OtpPurpose): Promise<{ success: true }> {
-  return apiFetch("/auth/otp/request", { method: "POST", body: { phone, purpose } });
+export function requestOtp(
+  phone: string,
+  purpose: OtpPurpose,
+  email?: string,
+): Promise<{ success: true }> {
+  return apiFetch("/auth/otp/request", { method: "POST", body: { phone, purpose, email } });
 }
 
 export function verifyOtp(phone: string, purpose: OtpPurpose, code: string): Promise<{ success: true }> {
@@ -22,6 +26,7 @@ export function verifyOtp(phone: string, purpose: OtpPurpose, code: string): Pro
 
 export async function registerUser(params: {
   phone: string;
+  email: string;
   fullName: string;
   pin: string;
   referralCode?: string;

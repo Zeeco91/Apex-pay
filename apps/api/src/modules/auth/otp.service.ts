@@ -14,6 +14,10 @@ import {
   SMS_PROVIDER,
   type SmsProvider,
 } from '../../common/sms/sms-provider.interface';
+import {
+  EMAIL_PROVIDER,
+  type EmailProvider,
+} from '../../common/email/email-provider.interface';
 import type { Env } from '../../config/env.validation';
 
 @Injectable()
@@ -24,12 +28,20 @@ export class OtpService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService<Env, true>,
     @Inject(SMS_PROVIDER) private readonly smsProvider: SmsProvider,
+    @Inject(EMAIL_PROVIDER) private readonly emailProvider: EmailProvider,
   ) {}
 
+  /**
+   * `email`, when given, is preferred over SMS — this is the interim delivery channel while
+   * SMS delivery is unavailable (see common/email/email.module.ts). Once SMS is restored,
+   * callers simply stop passing an email and delivery reverts to SMS with no further changes
+   * here.
+   */
   async requestOtp(
     phone: string,
     purpose: OtpPurpose,
     ipAddress?: string,
+    email?: string,
   ): Promise<void> {
     const cooldownSeconds = this.config.get('OTP_REQUEST_COOLDOWN_SECONDS', {
       infer: true,
@@ -79,8 +91,12 @@ export class OtpService {
       },
     });
 
-    await this.smsProvider.sendOtp(phone, code);
-    this.logger.log(`OTP requested for ${purpose} (phone redacted)`);
+    if (email) {
+      await this.emailProvider.sendOtp(email, code);
+    } else {
+      await this.smsProvider.sendOtp(phone, code);
+    }
+    this.logger.log(`OTP requested for ${purpose} (contact redacted)`);
   }
 
   /** Verifies and — on success — consumes the code. Throws on any failure. */

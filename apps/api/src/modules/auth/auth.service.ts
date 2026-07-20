@@ -43,9 +43,10 @@ export class AuthService {
     rawPhone: string,
     purpose: OtpPurpose,
     meta: RequestMeta,
+    email?: string,
   ): Promise<void> {
     const phone = normalizePhoneOrThrow(rawPhone);
-    await this.otpService.requestOtp(phone, purpose, meta.ipAddress);
+    await this.otpService.requestOtp(phone, purpose, meta.ipAddress, email);
   }
 
   async verifyOtp(
@@ -60,6 +61,7 @@ export class AuthService {
   async register(
     params: {
       phone: string;
+      email: string;
       fullName: string;
       pin: string;
       referralCode?: string;
@@ -86,6 +88,13 @@ export class AuthService {
       );
     }
 
+    const existingEmail = await this.usersService.findByEmail(params.email);
+    if (existingEmail) {
+      throw new ConflictException(
+        'An account with this email address already exists',
+      );
+    }
+
     let referredByUserId: string | null = null;
     if (params.referralCode) {
       const referrer = await this.usersService.findByReferralCode(
@@ -100,6 +109,7 @@ export class AuthService {
     const pinHash = await argon2.hash(params.pin, { type: argon2.argon2id });
     const user = await this.usersService.createUser({
       phone,
+      email: params.email,
       fullName: params.fullName,
       pinHash,
       referredByUserId,
@@ -190,7 +200,14 @@ export class AuthService {
     // otherwise this endpoint becomes an account-existence oracle.
     const user = await this.usersService.findByPhone(phone);
     if (user) {
-      await this.otpService.requestOtp(phone, 'PIN_RESET', meta.ipAddress);
+      // Uses whatever email is already on file, if any — never asks the client to supply one,
+      // so this can't be used to overwrite/probe an account's registered email.
+      await this.otpService.requestOtp(
+        phone,
+        'PIN_RESET',
+        meta.ipAddress,
+        user.email ?? undefined,
+      );
     }
   }
 

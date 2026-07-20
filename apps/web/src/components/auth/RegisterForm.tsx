@@ -20,6 +20,7 @@ export function RegisterForm() {
   const [step, setStep] = useState<Step>("details");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   // Prefilled from a referral link (?ref=CODE), read once at construction time.
@@ -41,6 +42,7 @@ export function RegisterForm() {
     const errors: Record<string, string> = {};
     if (fullName.trim().length < 2) errors.fullName = "Enter your full name.";
     if (phone.trim().length < 7) errors.phone = "Enter a valid phone number.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) errors.email = "Enter a valid email address.";
     if (!/^\d{4}$/.test(pin)) errors.pin = "PIN must be exactly 4 digits.";
     if (confirmPin !== pin) errors.confirmPin = "PINs don't match.";
     setFieldErrors(errors);
@@ -54,7 +56,7 @@ export function RegisterForm() {
 
     setIsSubmitting(true);
     try {
-      await requestOtp(phone, "REGISTER");
+      await requestOtp(phone, "REGISTER", email.trim());
       setStep("otp");
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (err) {
@@ -68,7 +70,7 @@ export function RegisterForm() {
     if (cooldown > 0) return;
     setFormError(null);
     try {
-      await requestOtp(phone, "REGISTER");
+      await requestOtp(phone, "REGISTER", email.trim());
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Couldn't resend the code.");
@@ -89,6 +91,7 @@ export function RegisterForm() {
       await verifyOtp(phone, "REGISTER", otpCode);
       const { user, accessToken } = await registerUser({
         phone,
+        email: email.trim(),
         fullName: fullName.trim(),
         pin,
         referralCode: referralCode.trim() || undefined,
@@ -106,7 +109,7 @@ export function RegisterForm() {
     return (
       <form onSubmit={handleVerifyAndRegister} noValidate className="flex flex-col gap-5">
         <p className="text-sm text-muted">
-          We sent a 6-digit code to <span className="font-medium text-foreground">{phone}</span>.
+          We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>.
         </p>
         <Input
           label="Verification code"
@@ -133,7 +136,7 @@ export function RegisterForm() {
             onClick={() => setStep("details")}
             className="font-medium text-muted underline underline-offset-4 hover:text-foreground"
           >
-            Change phone number
+            Change details
           </button>
           <button
             type="button"
@@ -168,6 +171,17 @@ export function RegisterForm() {
         onChange={(event) => setPhone(event.target.value)}
         placeholder="080..."
         error={fieldErrors.phone}
+      />
+      <Input
+        label="Email address"
+        name="email"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+        placeholder="jane@example.com"
+        hint="We'll send your verification code here."
+        error={fieldErrors.email}
       />
       <Input
         label="4-digit PIN"

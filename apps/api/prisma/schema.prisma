@@ -152,6 +152,10 @@ model User {
   id                 String     @id @default(uuid())
   phone              String     @unique
   phoneVerifiedAt    DateTime?
+  // Nullable because 113 accounts already existed when this was added (no backfill value would
+  // be meaningful) — every new registration requires one (enforced in RegisterDto), used as the
+  // OTP delivery address while SMS delivery is unavailable (plan: swap back once SMS is fixed).
+  email              String?    @unique
   fullName           String
   pinHash            String
   referralCode       String     @unique

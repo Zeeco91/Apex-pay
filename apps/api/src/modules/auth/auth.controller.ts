@@ -46,9 +46,12 @@ export class AuthController {
     @Body() dto: RequestOtpDto,
     @Ip() ip: string,
   ): Promise<{ success: true }> {
-    await this.authService.requestOtp(dto.phone, dto.purpose, {
-      ipAddress: ip,
-    });
+    await this.authService.requestOtp(
+      dto.phone,
+      dto.purpose,
+      { ipAddress: ip },
+      dto.email,
+    );
     return { success: true };
   }
 

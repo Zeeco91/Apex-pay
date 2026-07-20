@@ -12,6 +12,7 @@ export interface PublicUser {
   id: string;
   phone: string;
   phoneVerifiedAt: string | null;
+  email: string | null;
   fullName: string;
   referralCode: string;
   referredByUserId: string | null;
@@ -156,6 +157,7 @@ export interface WithdrawalRequestView {
 export interface AdminUserSummary {
   id: string;
   phone: string;
+  email: string | null;
   fullName: string;
   role: UserRole;
   status: UserStatus;

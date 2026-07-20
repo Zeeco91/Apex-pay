@@ -39,6 +39,12 @@ const envSchema = z.object({
   OTP_REQUEST_MAX_PER_WINDOW: z.coerce.number().int().positive().default(5),
   OTP_REQUEST_WINDOW_MINUTES: z.coerce.number().int().positive().default(60),
 
+  // Email OTP delivery (interim channel while SMS delivery is unavailable — see
+  // common/email/email.module.ts). Unset in development falls back to logging the code to the
+  // console instead of sending a real email; unset in production fails fast at boot.
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('APEX PAY <onboarding@resend.dev>'),
+
   // Single platform-wide collection account (plan §2) — payers are shown these details, never
   // the payee's. Editable admin settings UI arrives with the Admin Panel Core phase; a static,
   // operator-configured account is the correct MVP shape until then.

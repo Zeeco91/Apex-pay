@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { SmsModule } from './common/sms/sms.module';
+import { EmailModule } from './common/email/email.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { KycModule } from './modules/kyc/kyc.module';
@@ -36,6 +37,7 @@ import { SupportChatModule } from './modules/support-chat/support-chat.module';
     PrismaModule,
     CryptoModule,
     SmsModule,
+    EmailModule,
     HealthModule,
     UsersModule,
     AuthModule,

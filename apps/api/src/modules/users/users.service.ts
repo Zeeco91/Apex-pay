@@ -39,6 +39,7 @@ export function toPublicUser(user: User): PublicUser {
     id: user.id,
     phone: user.phone,
     phoneVerifiedAt: user.phoneVerifiedAt,
+    email: user.email,
     fullName: user.fullName,
     referralCode: user.referralCode,
     referredByUserId: user.referredByUserId,
@@ -56,6 +57,7 @@ export function toPublicUser(user: User): PublicUser {
 export interface AdminUserSummary {
   id: string;
   phone: string;
+  email: string | null;
   fullName: string;
   role: UserRole;
   status: UserStatus;
@@ -80,6 +82,10 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { phone } });
   }
 
+  findByEmail(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { email } });
+  }
+
   findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
@@ -90,6 +96,7 @@ export class UsersService {
 
   async createUser(params: {
     phone: string;
+    email: string;
     fullName: string;
     pinHash: string;
     referredByUserId?: string | null;
@@ -98,6 +105,7 @@ export class UsersService {
     return this.prisma.user.create({
       data: {
         phone: params.phone,
+        email: params.email,
         fullName: params.fullName,
         pinHash: params.pinHash,
         referralCode,
@@ -179,6 +187,7 @@ export class UsersService {
               OR: [
                 { phone: { contains: filters.search, mode: 'insensitive' } },
                 { fullName: { contains: filters.search, mode: 'insensitive' } },
+                { email: { contains: filters.search, mode: 'insensitive' } },
               ],
             }
           : {}),
@@ -310,6 +319,7 @@ function toAdminSummary(user: User): AdminUserSummary {
   return {
     id: user.id,
     phone: user.phone,
+    email: user.email,
     fullName: user.fullName,
     role: user.role,
     status: user.status,
