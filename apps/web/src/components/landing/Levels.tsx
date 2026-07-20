@@ -25,7 +25,7 @@ export function Levels() {
               <span className="text-sm font-semibold uppercase tracking-wide text-muted">
                 {level.name}
               </span>
-              <span className="mt-2 text-3xl font-bold text-foreground">
+              <span className="mt-2 text-3xl font-bold text-primary">
                 {formatNaira(level.amount)}
               </span>
               <ButtonLink
