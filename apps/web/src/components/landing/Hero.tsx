@@ -23,8 +23,8 @@ export function Hero() {
 
         <p className="mt-6 max-w-2xl text-lg leading-8 text-muted">
           APEX PAY organizes members into contribution queues by savings level —
-          you get your full investment back when it&apos;s your turn, no guessing
-          games.
+          you get your full investment back when it&apos;s your turn, plus a little
+          extra depending on your level, no guessing games.
         </p>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">
