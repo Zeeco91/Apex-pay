@@ -64,7 +64,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "faq-is-investment",
     question: "Is APEX PAY an investment?",
     answer:
-      "Not in the way that word usually means. APEX PAY is a contribution-based savings queue, not an investment product — we never promise a fixed rate of return. The \"return\" you get is your full contribution paid back to you, minus a small platform fee, plus an optional level-based bonus if your level offers one. That bonus is capped, funded only from platform fee revenue, and never guaranteed — see \"What is the level-based incentive bonus?\" below.",
+      "Not in the way that word usually means. APEX PAY is a contribution-based savings queue, not an investment product — we never promise a fixed rate of return. The \"return\" you get is your full contribution paid back to you, minus a small platform fee, plus an optional level-based bonus if your level offers one. That bonus is capped, funded only from platform fee revenue, and never guaranteed.",
   },
   {
     id: "faq-payout-timing",
@@ -77,11 +77,5 @@ export const FAQ_ITEMS: FaqItem[] = [
     question: "How does the referral program work?",
     answer:
       "Four steps: (1) Share your unique referral code from your dashboard. (2) Your bonus is only triggered once your referral's first contribution cycle is confirmed complete — not just at sign-up. (3) That bonus is funded entirely out of APEX PAY's own fee revenue, never taken from another member's contribution. (4) Bonuses are held for 30 working days before becoming withdrawable, a standard anti-fraud safeguard.",
-  },
-  {
-    id: "faq-incentive-bonus",
-    question: "What is the level-based incentive bonus?",
-    answer:
-      "Higher savings levels have access to a larger target bonus, paid on top of your returned contribution. This is capped on purpose: it's strictly limited to what's actually available in the platform's accumulated fee revenue at that moment. If the pool is thin, the bonus is reduced or paused — we don't borrow against the future to pay it. It's described as 'up to' a rate, never a guaranteed extra return.",
   },
 ] as const;
