@@ -40,9 +40,13 @@ const envSchema = z.object({
   OTP_REQUEST_WINDOW_MINUTES: z.coerce.number().int().positive().default(60),
 
   // Email OTP delivery (interim channel while SMS delivery is unavailable — see
-  // common/email/email.module.ts). Unset in development falls back to logging the code to the
-  // console instead of sending a real email; unset in production fails fast at boot.
+  // common/email/email.module.ts). EmailModule prefers AWS SES (if configured) over Resend
+  // over logging the code to the console; unset in production with neither configured fails
+  // fast at boot. EMAIL_FROM must be a sender verified with whichever provider is active.
   RESEND_API_KEY: z.string().optional(),
+  AWS_SES_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SES_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_SES_REGION: z.string().default('us-east-1'),
   EMAIL_FROM: z.string().default('APEX PAY <onboarding@resend.dev>'),
 
   // Single platform-wide collection account (plan §2) — payers are shown these details, never
