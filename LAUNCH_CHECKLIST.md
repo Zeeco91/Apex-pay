@@ -49,9 +49,12 @@ gap, not boilerplate.
       escalation process for suspicious activity beyond the heuristic fraud flags.
 
 ### Infrastructure that's currently a dev stand-in
-- [ ] **SMS delivery**: `ConsoleSmsProvider` only logs OTP codes — it refuses to run in
-      production by design. A real provider (Termii primary, Twilio fallback per plan §1) needs
-      to be built against the existing `SmsProvider` interface and wired into `SmsModule`.
+- [ ] **SMS delivery**: `ConsoleSmsProvider` only logs OTP codes, never sends a real SMS. Email
+      (via Resend, see `common/email`) is now the primary OTP channel for registration and PIN
+      reset, so this only affects the fallback path for accounts with no email on file. A real
+      provider (Termii primary, Twilio fallback per plan §1) still needs to be built against the
+      existing `SmsProvider` interface and wired into `SmsModule` before that fallback works for
+      real users.
 - [ ] **File storage**: proof-of-payment images are stored on local disk
       (`LocalDiskStorageProvider`) — fine for one dev machine, not for a real multi-instance
       deployment. Swap in a real provider (S3/R2/similar) behind the existing
