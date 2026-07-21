@@ -55,10 +55,12 @@ gap, not boilerplate.
       provider (Termii primary, Twilio fallback per plan §1) still needs to be built against the
       existing `SmsProvider` interface and wired into `SmsModule` before that fallback works for
       real users.
-- [ ] **File storage**: proof-of-payment images are stored on local disk
-      (`LocalDiskStorageProvider`) — fine for one dev machine, not for a real multi-instance
-      deployment. Swap in a real provider (S3/R2/similar) behind the existing
-      `FileStorageProvider` interface.
+- [ ] **File storage**: proof-of-payment/KYC images are stored on local disk
+      (`LocalDiskStorageProvider`) — fine for one dev machine, actively broken in the current
+      Railway deployment (`getSignedUrl()` hardcodes `localhost`, and nothing persists across
+      redeploys). No longer crashes the app on boot, but KYC submission and payment-proof upload
+      will not work correctly for real users until a real provider (S3/R2/similar) is wired in
+      behind the existing `FileStorageProvider` interface.
 - [ ] **Pot/collection bank account**: `POT_ACCOUNT_*` env vars currently hold test values. This
       must become a real, non-personal business bank account before any real contribution is
       accepted (plan §10: "a real (not personal) business bank account for the pot").

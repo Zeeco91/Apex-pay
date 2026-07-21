@@ -14,24 +14,24 @@ const SIGNED_URL_TTL_SECONDS = 5 * 60;
 export const UPLOADS_ROOT = join(process.cwd(), 'uploads');
 
 /**
- * Dev-only stand-in until a real provider (S3/R2, plan §1) is wired up. Stores files on local
- * disk and issues HMAC-signed, short-lived URLs served back through FilesController — nothing
- * under `uploads/` is ever served without a valid, unexpired token.
+ * Stand-in until a real provider (S3/R2, plan §1) is wired up. Stores files on local disk and
+ * issues HMAC-signed, short-lived URLs served back through FilesController — nothing under
+ * `uploads/` is ever served without a valid, unexpired token.
  *
- * Refuses to run in production so nobody ships this by accident believing files are durably
- * and securely stored (same pattern as ConsoleSmsProvider).
+ * NOT production-ready: getSignedUrl() below hardcodes `localhost`, so generated links are
+ * unreachable for real users, and anything saved here is lost on every redeploy (no persistent
+ * volume). This previously threw on construction when NODE_ENV=production, but every provider
+ * in this module (this one, SmsModule's ConsoleSmsProvider) gets eagerly instantiated at boot
+ * regardless of whether file upload is ever used, so that guard crashed the whole app rather
+ * than only the KYC/proof-of-payment upload paths that actually need a real provider. Removed
+ * so registration/login (which don't touch file storage) can run — file upload remains broken
+ * in production until a real FileStorageProvider is wired in.
  */
 @Injectable()
 export class LocalDiskStorageProvider implements FileStorageProvider {
   private readonly logger = new Logger(LocalDiskStorageProvider.name);
 
-  constructor(private readonly config: ConfigService<Env, true>) {
-    if (config.get('NODE_ENV', { infer: true }) === 'production') {
-      throw new Error(
-        'LocalDiskStorageProvider must never run in production — wire a real FileStorageProvider (S3/R2) first.',
-      );
-    }
-  }
+  constructor(private readonly config: ConfigService<Env, true>) {}
 
   async save(params: {
     buffer: Buffer;
