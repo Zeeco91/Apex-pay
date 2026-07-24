@@ -2,15 +2,11 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import cookieParser from 'cookie-parser';
-import {
-  generate as generateTotp,
-  generateSecret as generateTotpSecret,
-} from 'otplib';
+import { generate as generateTotp } from 'otplib';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { CryptoService } from '../src/common/crypto/crypto.service';
 import {
   SMS_PROVIDER,
   type SmsProvider,
@@ -18,7 +14,7 @@ import {
 
 /**
  * End-to-end coverage for the platform's highest-stakes flows (plan §11): identity/auth, the
- * full pooled contribution→disbursement cycle, and admin MFA enforcement. These hit a real
+ * full peer-to-peer contribution cycle, and admin MFA enforcement. These hit a real
  * NestJS app instance (real Prisma, real Postgres —
  * the same DATABASE_URL as `npm run start:dev`) with only the SMS provider swapped for a
  * capturing test double, since no real SMS transport exists yet (plan §1).
@@ -104,8 +100,7 @@ describe('Critical flows (e2e)', () => {
 
   /** Creates an ACTIVE admin directly via Prisma, with MFA left disabled — used
    * only by the dedicated MFA-enforcement suite below, which tests that setup/enforcement
-   * mechanic itself. Every other suite uses createTestAdmin (MFA pre-enabled) instead, since
-   * re-proving MFA enforcement in every suite would just be redundant setup cost. */
+   * mechanic itself. */
   async function createTestAdminWithoutMfa(): Promise<{
     phone: string;
     pin: string;
@@ -124,42 +119,6 @@ describe('Critical flows (e2e)', () => {
       },
     });
     return { phone, pin };
-  }
-
-  /** Admin fixture with MFA already enabled (admin routes reject ADMIN/SUPER_ADMIN accounts
-   * without it — Phase 10 hardening), so suites focused on other flows can get a working admin
-   * token via loginAdminWithMfa without re-running the setup dance themselves. */
-  async function createTestAdmin(): Promise<{
-    phone: string;
-    pin: string;
-    mfaSecret: string;
-  }> {
-    const { phone, pin } = await createTestAdminWithoutMfa();
-    const mfaSecret = generateTotpSecret();
-    const crypto = app.get(CryptoService);
-    await prisma.user.update({
-      where: { phone },
-      data: { mfaEnabled: true, mfaSecret: crypto.encrypt(mfaSecret) },
-    });
-    return { phone, pin, mfaSecret };
-  }
-
-  async function loginAdminWithMfa(admin: {
-    phone: string;
-    pin: string;
-    mfaSecret: string;
-  }): Promise<string> {
-    const login = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
-      .send({ phone: admin.phone, pin: admin.pin })
-      .expect(201);
-    expect(login.body.data.mfaRequired).toBe(true);
-    const code = await generateTotp({ secret: admin.mfaSecret });
-    const verified = await request(app.getHttpServer())
-      .post('/api/v1/auth/mfa/login-verify')
-      .send({ mfaPendingToken: login.body.data.mfaPendingToken, code })
-      .expect(201);
-    return verified.body.data.accessToken as string;
   }
 
   /** Active member, created directly for tests whose focus is downstream of registration. */
@@ -270,19 +229,15 @@ describe('Critical flows (e2e)', () => {
     });
   });
 
-  describe('Full pooled contribution cycle: join → match → proof → confirm → disburse → payee confirms', () => {
+  describe('Full peer-to-peer contribution cycle: join → match → proof → payee confirms', () => {
     let payer: { phone: string; pin: string; id: string };
     let payee: { phone: string; pin: string; id: string };
     let payerToken: string;
     let payeeToken: string;
-    let adminToken: string;
     let levelId: string;
     let transactionId: string;
 
     beforeAll(async () => {
-      const admin = await createTestAdmin();
-      adminToken = await loginAdminWithMfa(admin);
-
       const levels = await request(app.getHttpServer())
         .get('/api/v1/levels')
         .expect(200);
@@ -327,6 +282,15 @@ describe('Critical flows (e2e)', () => {
       );
     });
 
+    it("the payer sees the payee's identity to pay them directly", async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/transactions/${transactionId}`)
+        .set('Authorization', `Bearer ${payerToken}`)
+        .expect(200);
+      expect(res.body.data.role).toBe('PAYER');
+      expect(res.body.data.counterpart.fullName).toContain('Payee');
+    });
+
     it('payer uploads proof of payment', async () => {
       const res = await request(app.getHttpServer())
         .post(`/api/v1/transactions/${transactionId}/proof`)
@@ -339,46 +303,12 @@ describe('Critical flows (e2e)', () => {
       expect(res.body.data.status).toBe('PROOF_SUBMITTED');
     });
 
-    it('admin confirms principal received, then disburses to the payee', async () => {
-      const confirmed = await request(app.getHttpServer())
-        .post(`/api/v1/admin/transactions/${transactionId}/confirm-principal`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(201);
-      expect(confirmed.body.data.status).toBe('PENDING_DISBURSEMENT');
-
-      const disbursed = await request(app.getHttpServer())
-        .post(`/api/v1/admin/transactions/${transactionId}/disburse`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send({ reference: 'E2E-TEST-REF-001' })
-        .expect(201);
-      expect(disbursed.body.data.status).toBe('DISBURSED');
-    });
-
-    it('payee confirms receipt, completing the cycle', async () => {
+    it('payee confirms receipt directly, completing the cycle', async () => {
       const confirmed = await request(app.getHttpServer())
         .post(`/api/v1/transactions/${transactionId}/confirm`)
         .set('Authorization', `Bearer ${payeeToken}`)
         .expect(201);
       expect(confirmed.body.data.status).toBe('CONFIRMED');
-    });
-
-    it('the treasury ledger recorded both the collection and the disbursement', async () => {
-      const ledger = await request(app.getHttpServer())
-        .get('/api/v1/admin/treasury-ledger')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
-      const entries = ledger.body.data.filter(
-        (e: { relatedTransactionId: string | null }) =>
-          e.relatedTransactionId === transactionId,
-      );
-      expect(
-        entries.some(
-          (e: { entryType: string }) => e.entryType === 'PRINCIPAL_COLLECTED',
-        ),
-      ).toBe(true);
-      expect(
-        entries.some((e: { entryType: string }) => e.entryType === 'DISBURSED'),
-      ).toBe(true);
     });
   });
 

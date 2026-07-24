@@ -213,7 +213,8 @@ export class AuthController {
     // reload. SameSite=None requires Secure, so it's only safe to use once we're on
     // https (production); locally, frontend and API share the "localhost" site so Lax
     // still works and avoids needing https in dev.
-    const isProduction = this.config.get('NODE_ENV', { infer: true }) === 'production';
+    const isProduction =
+      this.config.get('NODE_ENV', { infer: true }) === 'production';
     res.cookie(REFRESH_COOKIE_NAME, tokens.refreshToken, {
       httpOnly: true,
       secure: isProduction,

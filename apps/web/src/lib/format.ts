@@ -28,7 +28,7 @@ export function describeQueueEntryStatus(status: QueueEntryStatus): string {
 }
 
 const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
-  AWAITING_PAYER_PROOF: "Awaiting your proof of payment",
+  AWAITING_PAYER_PROOF: "Awaiting proof of payment",
   PROOF_SUBMITTED: "Proof submitted — awaiting confirmation",
   PRINCIPAL_RECEIVED: "Contribution received — payout processing",
   PENDING_DISBURSEMENT: "Payout processing",

@@ -49,13 +49,6 @@ const envSchema = z.object({
   AWS_SES_REGION: z.string().default('us-east-1'),
   EMAIL_FROM: z.string().default('APEX PAY <onboarding@resend.dev>'),
 
-  // Single platform-wide collection account (plan §2) — payers are shown these details, never
-  // the payee's. Editable admin settings UI arrives with the Admin Panel Core phase; a static,
-  // operator-configured account is the correct MVP shape until then.
-  POT_ACCOUNT_BANK_NAME: z.string().min(1).default('Not configured'),
-  POT_ACCOUNT_NUMBER: z.string().min(1).default('0000000000'),
-  POT_ACCOUNT_NAME: z.string().min(1).default('Not configured'),
-
   // Signing secret for proof-of-payment file access tokens (dev-local-disk storage only —
   // a real S3/R2 provider issues its own signed URLs and won't need this).
   FILE_ACCESS_HMAC_SECRET: z

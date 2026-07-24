@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { getLevels } from "@/lib/api/levels";
-import { joinQueue, listMyQueueEntries } from "@/lib/api/queue";
+import { cancelQueueEntry, joinQueue, listMyQueueEntries } from "@/lib/api/queue";
 import { ApiError } from "@/lib/api/client";
 import { formatNaira } from "@/lib/constants";
 import { describeQueueEntryStatus } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import { TransactionPanel } from "@/components/dashboard/TransactionPanel";
 import type { PublicLevel, QueueEntryStatus, QueueEntrySummary } from "@/types/api";
 
 const ACTIVE_STATUSES: QueueEntryStatus[] = [
@@ -23,7 +24,18 @@ export default function DashboardLevelsPage() {
   const [entriesByLevel, setEntriesByLevel] = useState<Record<string, QueueEntrySummary>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [joiningLevelId, setJoiningLevelId] = useState<string | null>(null);
+  const [cancellingLevelId, setCancellingLevelId] = useState<string | null>(null);
   const [joinErrorsByLevel, setJoinErrorsByLevel] = useState<Record<string, string>>({});
+
+  const loadEntries = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const entriesData = await listMyQueueEntries(accessToken);
+      setEntriesByLevel(indexActiveEntriesByLevel(entriesData));
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "Couldn't load your levels. Please try again.");
+    }
+  }, [accessToken]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -62,6 +74,30 @@ export default function DashboardLevelsPage() {
     }
   }
 
+  async function handleCancel(levelId: string, entryId: string) {
+    if (!accessToken) return;
+    setCancellingLevelId(levelId);
+    setJoinErrorsByLevel((prev) => ({ ...prev, [levelId]: "" }));
+
+    try {
+      await cancelQueueEntry(accessToken, entryId);
+      setEntriesByLevel((prev) => {
+        const next = { ...prev };
+        delete next[levelId];
+        return next;
+      });
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Couldn't cancel. Please try again.";
+      setJoinErrorsByLevel((prev) => ({ ...prev, [levelId]: message }));
+    } finally {
+      setCancellingLevelId(null);
+    }
+  }
+
+  // Members can only be in one level's payout queue at a time, so at most one entry exists
+  // across the whole map — find it once, regardless of which level it's in.
+  const activeEntryElsewhere = Object.values(entriesByLevel)[0];
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -85,7 +121,11 @@ export default function DashboardLevelsPage() {
           {levels.map((level) => {
             const activeEntry = entriesByLevel[level.id];
             const isJoining = joiningLevelId === level.id;
+            const isCancelling = cancellingLevelId === level.id;
             const joinError = joinErrorsByLevel[level.id];
+            const needsPayment =
+              activeEntry?.status === "PENDING_JOIN_PAYMENT" && Boolean(activeEntry.transactionId);
+            const blockedByOtherLevel = !activeEntry && Boolean(activeEntryElsewhere);
 
             return (
               <div
@@ -99,20 +139,49 @@ export default function DashboardLevelsPage() {
                   {formatNaira(level.contributionAmount)}
                 </span>
 
-                {activeEntry ? (
-                  <div className="mt-6 rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
-                    {describeQueueEntryStatus(activeEntry.status)}
+                {!activeEntry ? (
+                  blockedByOtherLevel ? (
+                    <div className="mt-6 rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm text-muted">
+                      You&apos;re already in {activeEntryElsewhere.levelName} — finish or cancel it to join this level.
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-6 w-full"
+                      isLoading={isJoining}
+                      onClick={() => void handleJoin(level.id)}
+                    >
+                      {isJoining ? "Joining…" : "Join"}
+                    </Button>
+                  )
+                ) : needsPayment ? (
+                  <div className="mt-4 flex flex-col gap-2">
+                    <TransactionPanel
+                      transactionId={activeEntry.transactionId!}
+                      onEntryStatusChange={() => void loadEntries()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleCancel(level.id, activeEntry.id)}
+                      disabled={isCancelling}
+                      className="self-start text-sm font-medium text-muted underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+                    >
+                      {isCancelling ? "Cancelling…" : "Cancel"}
+                    </button>
                   </div>
                 ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mt-6 w-full"
-                    isLoading={isJoining}
-                    onClick={() => void handleJoin(level.id)}
-                  >
-                    {isJoining ? "Joining…" : "Join"}
-                  </Button>
+                  <div className="mt-6 flex flex-col gap-2">
+                    <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
+                      {describeQueueEntryStatus(activeEntry.status)}
+                    </div>
+                    <Link
+                      href="/dashboard/queue"
+                      className="text-center text-sm font-medium text-primary underline underline-offset-4"
+                    >
+                      Check Get Help →
+                    </Link>
+                  </div>
                 )}
                 {joinError && (
                   <p role="alert" className="mt-2 text-sm text-danger">

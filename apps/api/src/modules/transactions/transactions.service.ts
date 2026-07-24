@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type {
   Level,
   Prisma,
@@ -19,11 +18,10 @@ import {
   type FileStorageProvider,
 } from '../../common/file-storage/file-storage-provider.interface';
 import { validateProofImage } from '../../common/file-storage/image-validation.util';
-import { writeLedgerEntry } from '../../common/treasury/treasury-ledger.util';
 import { EXTENDED_TX_OPTIONS } from '../../common/prisma/transaction-options.util';
 import { AuditLogService } from '../../common/audit-log/audit-log.service';
 import { ReferralsService } from '../referrals/referrals.service';
-import type { Env } from '../../config/env.validation';
+import type { PayoutBankDetails } from '../users/users.service';
 
 const TERMINAL_TRANSACTION_STATUSES: TransactionStatus[] = [
   'CONFIRMED',
@@ -33,10 +31,28 @@ const TERMINAL_TRANSACTION_STATUSES: TransactionStatus[] = [
   'CANCELLED',
 ];
 
-export interface PotAccount {
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
+// Selected on every query whose result feeds `toDetail` — gives both parties each other's
+// name/phone, and the payer specifically the payee's bank details (direct peer-to-peer
+// payment, no platform pot in the middle).
+const PARTIES_INCLUDE = {
+  payerUser: { select: { fullName: true, phone: true } },
+  payeeUser: {
+    select: { fullName: true, phone: true, payoutBankDetails: true },
+  },
+} satisfies Prisma.TransactionInclude;
+
+type TransactionWithParties = Transaction & {
+  payerUser: { fullName: string; phone: string };
+  payeeUser: {
+    fullName: string;
+    phone: string;
+    payoutBankDetails: Prisma.JsonValue | null;
+  };
+};
+
+export interface TransactionCounterpart {
+  fullName: string;
+  phone: string;
 }
 
 export interface TransactionDetail {
@@ -45,14 +61,13 @@ export interface TransactionDetail {
   status: TransactionStatus;
   role: 'PAYER' | 'PAYEE';
   principalAmount: number;
-  platformFeeAmount: number;
-  payeeDisbursedAmount: number;
-  potAccount: PotAccount | null;
+  // Who you're matched with — visible to both parties so they can coordinate payment directly.
+  counterpart: TransactionCounterpart;
+  // Only populated for the payer: the payee's bank details, to pay them directly. The payee
+  // has no need to see the payer's bank details in this transaction.
+  payeeBankDetails: PayoutBankDetails | null;
   hasProof: boolean;
   payerProofUploadedAt: Date | null;
-  principalReceivedAt: Date | null;
-  disbursedAt: Date | null;
-  disbursementReference: string | null;
   payeeConfirmedAt: Date | null;
   disputeReason: string | null;
   disputeRaisedAt: Date | null;
@@ -98,7 +113,6 @@ export class TransactionsService {
     private readonly prisma: PrismaService,
     @Inject(FILE_STORAGE_PROVIDER)
     private readonly fileStorage: FileStorageProvider,
-    private readonly config: ConfigService<Env, true>,
     private readonly referralsService: ReferralsService,
     private readonly auditLog: AuditLogService,
   ) {}
@@ -109,6 +123,7 @@ export class TransactionsService {
   ): Promise<TransactionDetail> {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id: transactionId },
+      include: PARTIES_INCLUDE,
     });
     assertIsParty(transaction, userId);
     return this.toDetail(transaction, userId);
@@ -147,6 +162,7 @@ export class TransactionsService {
           payerProofImageKey: saved.key,
           payerProofUploadedAt: new Date(),
         },
+        include: PARTIES_INCLUDE,
       });
 
       return this.toDetail(updated, userId);
@@ -175,7 +191,9 @@ export class TransactionsService {
       if (!transaction || transaction.payeeUserId !== userId) {
         throw new NotFoundException('Transaction not found');
       }
-      if (transaction.status !== 'DISBURSED') {
+      // No pot custody step anymore — the payer pays the payee directly, so the payee can
+      // confirm as soon as proof has been submitted, instead of waiting on an admin disbursement.
+      if (transaction.status !== 'PROOF_SUBMITTED') {
         throw new ConflictException(
           `Can't confirm receipt — this transaction is ${describeStatus(transaction.status)}.`,
         );
@@ -184,6 +202,7 @@ export class TransactionsService {
       const updated = await tx.transaction.update({
         where: { id: transaction.id },
         data: { status: 'CONFIRMED', payeeConfirmedAt: new Date() },
+        include: PARTIES_INCLUDE,
       });
 
       await tx.queueEntry.update({
@@ -238,6 +257,7 @@ export class TransactionsService {
           disputeRaisedByUserId: userId,
           disputeRaisedAt: new Date(),
         },
+        include: PARTIES_INCLUDE,
       });
 
       await tx.queueEntry.updateMany({
@@ -266,123 +286,6 @@ export class TransactionsService {
       orderBy: { createdAt: 'asc' },
     });
     return transactions.map(toAdminSummary);
-  }
-
-  async confirmPrincipal(
-    adminId: string,
-    transactionId: string,
-  ): Promise<AdminTransactionSummary> {
-    return this.prisma.$transaction(async (tx) => {
-      const transaction = await tx.transaction.findUnique({
-        where: { id: transactionId },
-      });
-      if (!transaction) throw new NotFoundException('Transaction not found');
-      if (transaction.status !== 'PROOF_SUBMITTED') {
-        throw new ConflictException(
-          `Can't confirm principal — this transaction is ${describeStatus(transaction.status)}.`,
-        );
-      }
-
-      await tx.transaction.update({
-        where: { id: transaction.id },
-        data: {
-          status: 'PENDING_DISBURSEMENT',
-          principalReceivedAt: new Date(),
-          principalConfirmedByAdminId: adminId,
-        },
-      });
-
-      await writeLedgerEntry(tx, {
-        entryType: 'PRINCIPAL_COLLECTED',
-        amount: transaction.principalAmount,
-        relatedTransactionId: transaction.id,
-      });
-
-      await this.auditLog.record(
-        {
-          adminUserId: adminId,
-          actionType: 'TRANSACTION_PRINCIPAL_CONFIRMED',
-          targetEntityType: 'Transaction',
-          targetEntityId: transaction.id,
-          reason: `Principal of ₦${transaction.principalAmount} confirmed received into the pot`,
-          beforeState: { status: transaction.status },
-          afterState: { status: 'PENDING_DISBURSEMENT' },
-        },
-        tx,
-      );
-
-      return this.loadAdminSummary(tx, transaction.id);
-    }, EXTENDED_TX_OPTIONS);
-  }
-
-  async disburse(
-    adminId: string,
-    transactionId: string,
-    params: { reference: string },
-  ): Promise<AdminTransactionSummary> {
-    return this.prisma.$transaction(async (tx) => {
-      const transaction = await tx.transaction.findUnique({
-        where: { id: transactionId },
-      });
-      if (!transaction) throw new NotFoundException('Transaction not found');
-      if (transaction.status !== 'PENDING_DISBURSEMENT') {
-        throw new ConflictException(
-          `Can't disburse — this transaction is ${describeStatus(transaction.status)}.`,
-        );
-      }
-
-      const [payee, level] = await Promise.all([
-        tx.user.findUniqueOrThrow({ where: { id: transaction.payeeUserId } }),
-        tx.level.findUniqueOrThrow({ where: { id: transaction.levelId } }),
-      ]);
-      if (!payee.payoutBankDetails) {
-        throw new ConflictException(
-          'Payee has not set up payout bank details yet.',
-        );
-      }
-
-      await tx.transaction.update({
-        where: { id: transaction.id },
-        data: {
-          status: 'DISBURSED',
-          disbursedAt: new Date(),
-          disbursedByAdminId: adminId,
-          disbursementReference: params.reference,
-          payeeBankDetailsSnapshot: payee.payoutBankDetails,
-        },
-      });
-
-      // Principal (full amount) was already counted as collected when the admin confirmed
-      // receipt — only the payee's share actually leaves the pot here.
-      await writeLedgerEntry(tx, {
-        entryType: 'DISBURSED',
-        amount: -transaction.payeeDisbursedAmount,
-        relatedTransactionId: transaction.id,
-      });
-      // Splits the fee into referral/incentive/platform-revenue pools (informational for the
-      // main pot balance — see writeLedgerEntry's affectsBalance doc) and, if this level offers
-      // one, pays the payee's level incentive bonus out of the now-updated incentive pool.
-      await this.referralsService.allocateFeeAndPayIncentive(
-        tx,
-        transaction,
-        level,
-      );
-
-      await this.auditLog.record(
-        {
-          adminUserId: adminId,
-          actionType: 'TRANSACTION_DISBURSED',
-          targetEntityType: 'Transaction',
-          targetEntityId: transaction.id,
-          reason: `Disbursed ₦${transaction.payeeDisbursedAmount} to payee, reference ${params.reference}`,
-          beforeState: { status: transaction.status },
-          afterState: { status: 'DISBURSED', reference: params.reference },
-        },
-        tx,
-      );
-
-      return this.loadAdminSummary(tx, transaction.id);
-    }, EXTENDED_TX_OPTIONS);
   }
 
   async resolveDispute(
@@ -491,25 +394,35 @@ export class TransactionsService {
   }
 
   private toDetail(
-    transaction: Transaction,
+    transaction: TransactionWithParties,
     requestingUserId: string,
   ): TransactionDetail {
     const role: 'PAYER' | 'PAYEE' =
       transaction.payerUserId === requestingUserId ? 'PAYER' : 'PAYEE';
+    const counterpart =
+      role === 'PAYER'
+        ? {
+            fullName: transaction.payeeUser.fullName,
+            phone: transaction.payeeUser.phone,
+          }
+        : {
+            fullName: transaction.payerUser.fullName,
+            phone: transaction.payerUser.phone,
+          };
     return {
       id: transaction.id,
       levelId: transaction.levelId,
       status: transaction.status,
       role,
       principalAmount: transaction.principalAmount,
-      platformFeeAmount: transaction.platformFeeAmount,
-      payeeDisbursedAmount: transaction.payeeDisbursedAmount,
-      potAccount: role === 'PAYER' ? this.potAccount() : null,
+      counterpart,
+      payeeBankDetails:
+        role === 'PAYER'
+          ? (transaction.payeeUser
+              .payoutBankDetails as PayoutBankDetails | null)
+          : null,
       hasProof: transaction.payerProofImageKey !== null,
       payerProofUploadedAt: transaction.payerProofUploadedAt,
-      principalReceivedAt: transaction.principalReceivedAt,
-      disbursedAt: transaction.disbursedAt,
-      disbursementReference: transaction.disbursementReference,
       payeeConfirmedAt: transaction.payeeConfirmedAt,
       disputeReason: transaction.disputeReason,
       disputeRaisedAt: transaction.disputeRaisedAt,
@@ -517,20 +430,12 @@ export class TransactionsService {
       createdAt: transaction.createdAt,
     };
   }
-
-  private potAccount(): PotAccount {
-    return {
-      bankName: this.config.get('POT_ACCOUNT_BANK_NAME', { infer: true }),
-      accountNumber: this.config.get('POT_ACCOUNT_NUMBER', { infer: true }),
-      accountName: this.config.get('POT_ACCOUNT_NAME', { infer: true }),
-    };
-  }
 }
 
-function assertIsParty(
-  transaction: Transaction | null,
+function assertIsParty<T extends { payerUserId: string; payeeUserId: string }>(
+  transaction: T | null,
   userId: string,
-): asserts transaction is Transaction {
+): asserts transaction is T {
   // Same 404 whether the transaction doesn't exist or the caller isn't a party to it — don't
   // let this endpoint become an oracle for "does transaction X exist".
   if (

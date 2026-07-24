@@ -88,16 +88,19 @@ export class QueueService {
           throw new NotFoundException('Level not found');
         }
 
+        // Members can only be in one level's payout queue at a time — checked across ALL
+        // levels, not just this one, so joining Gold while already waiting in Bronze is
+        // rejected the same as double-joining Bronze itself.
         const existing = await tx.queueEntry.findFirst({
           where: {
             userId,
-            levelId,
             status: { in: ACTIVE_QUEUE_ENTRY_STATUSES },
           },
+          include: { level: true },
         });
         if (existing) {
           throw new ConflictException(
-            'You already have an active queue entry in this level.',
+            `You already have an active entry in ${existing.level.name} — finish or cancel it before joining another level.`,
           );
         }
 
@@ -133,11 +136,11 @@ export class QueueService {
           };
         }
 
+        // Direct peer-to-peer payment: the payer pays the payee's full contribution amount
+        // directly, no platform pot in the middle and no fee taken for now.
         const principalAmount = level.contributionAmount;
-        const platformFeeAmount = Math.round(
-          (principalAmount * level.feePercent) / 100,
-        );
-        const payeeDisbursedAmount = principalAmount - platformFeeAmount;
+        const platformFeeAmount = 0;
+        const payeeDisbursedAmount = principalAmount;
 
         const transaction = await tx.transaction.create({
           data: {
@@ -183,7 +186,7 @@ export class QueueService {
         error.code === UNIQUE_CONSTRAINT_VIOLATION_CODE
       ) {
         throw new ConflictException(
-          'You already have an active queue entry in this level.',
+          'You already have an active queue entry — finish or cancel it before joining another level.',
         );
       }
       throw error;
@@ -478,11 +481,11 @@ export class QueueService {
       }
 
       const level = payerEntry.level;
+      // Direct peer-to-peer payment: the payer pays the payee's full contribution amount
+      // directly, no platform pot in the middle and no fee taken for now.
       const principalAmount = level.contributionAmount;
-      const platformFeeAmount = Math.round(
-        (principalAmount * level.feePercent) / 100,
-      );
-      const payeeDisbursedAmount = principalAmount - platformFeeAmount;
+      const platformFeeAmount = 0;
+      const payeeDisbursedAmount = principalAmount;
 
       const transaction = await tx.transaction.create({
         data: {

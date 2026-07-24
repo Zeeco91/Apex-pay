@@ -16,7 +16,6 @@ import {
   type AuthenticatedUser,
 } from '../../common/decorators/current-user.decorator';
 import { TransactionsService } from './transactions.service';
-import { DisburseDto } from './dto/disburse.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 
 /**
@@ -33,27 +32,6 @@ export class AdminTransactionsController {
   @Get('admin/transactions')
   async list(@Query('status') status?: TransactionStatus) {
     const data = await this.transactionsService.listForAdmin(status);
-    return { success: true, data };
-  }
-
-  @Post('admin/transactions/:id/confirm-principal')
-  async confirmPrincipal(
-    @CurrentUser() admin: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
-    const data = await this.transactionsService.confirmPrincipal(admin.id, id);
-    return { success: true, data };
-  }
-
-  @Post('admin/transactions/:id/disburse')
-  async disburse(
-    @CurrentUser() admin: AuthenticatedUser,
-    @Param('id') id: string,
-    @Body() dto: DisburseDto,
-  ) {
-    const data = await this.transactionsService.disburse(admin.id, id, {
-      reference: dto.reference,
-    });
     return { success: true, data };
   }
 

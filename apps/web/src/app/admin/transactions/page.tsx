@@ -4,16 +4,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api/client";
 import { formatNaira } from "@/lib/constants";
-import {
-  listTransactionsForAdmin,
-  confirmPrincipal,
-  disburseTransaction,
-  resolveDispute,
-} from "@/lib/api/admin/transactions";
+import { listTransactionsForAdmin, resolveDispute } from "@/lib/api/admin/transactions";
 import { describeTransactionStatus } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { ReasonActionButton } from "@/components/admin/ReasonActionButton";
 import { DisputeResolutionAction } from "@/components/admin/DisputeResolutionAction";
 import type { AdminTransactionSummary, TransactionStatus } from "@/types/api";
 
@@ -31,8 +24,8 @@ const STATUS_TONE: Record<TransactionStatus, BadgeTone> = {
 };
 
 const FILTERS: { label: string; value: TransactionStatus | "" }[] = [
-  { label: "Awaiting confirmation", value: "PROOF_SUBMITTED" },
-  { label: "Ready to disburse", value: "PENDING_DISBURSEMENT" },
+  { label: "Awaiting payment", value: "AWAITING_PAYER_PROOF" },
+  { label: "Awaiting payee confirmation", value: "PROOF_SUBMITTED" },
   { label: "Disputed", value: "DISPUTED" },
   { label: "All", value: "" },
 ];
@@ -65,18 +58,6 @@ export default function AdminTransactionsPage() {
     };
   }, [accessToken, statusFilter]);
 
-  async function handleConfirmPrincipal(id: string) {
-    if (!accessToken) return;
-    const updated = await confirmPrincipal(accessToken, id);
-    setTransactions((prev) => prev.map((t) => (t.id === id ? updated : t)));
-  }
-
-  async function handleDisburse(id: string, reference: string) {
-    if (!accessToken) return;
-    const updated = await disburseTransaction(accessToken, id, reference);
-    setTransactions((prev) => prev.map((t) => (t.id === id ? updated : t)));
-  }
-
   async function handleResolveDispute(id: string, resolution: "CONFIRMED" | "REJECTED", notes: string) {
     if (!accessToken) return;
     const updated = await resolveDispute(accessToken, id, { resolution, notes });
@@ -88,7 +69,7 @@ export default function AdminTransactionsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Transactions</h1>
         <p className="mt-1 text-sm text-muted">
-          Confirm received contributions, disburse payouts, and resolve disputes.
+          Members pay each other directly — resolve disputes when something goes wrong.
         </p>
       </div>
 
@@ -130,48 +111,22 @@ export default function AdminTransactionsPage() {
                 <Badge tone={STATUS_TONE[tx.status]}>{describeTransactionStatus(tx.status)}</Badge>
               </div>
 
-              <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Platform fee</p>
-                  <p className="mt-1 text-foreground">{formatNaira(tx.platformFeeAmount)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Payee receives</p>
-                  <p className="mt-1 text-foreground">{formatNaira(tx.payeeDisbursedAmount)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Match type</p>
-                  <p className="mt-1 text-foreground">{tx.matchType.replace(/_/g, " ")}</p>
-                </div>
+              <div className="mt-4 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Match type</p>
+                <p className="mt-1 text-foreground">{tx.matchType.replace(/_/g, " ")}</p>
               </div>
 
               {tx.disputeReason ? (
                 <p className="mt-4 text-sm text-danger">Dispute: {tx.disputeReason}</p>
               ) : null}
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {tx.status === "PROOF_SUBMITTED" && (
-                  <Button variant="primary" className="px-4 py-2 text-xs" onClick={() => void handleConfirmPrincipal(tx.id)}>
-                    Confirm principal received
-                  </Button>
-                )}
-                {tx.status === "PENDING_DISBURSEMENT" && (
-                  <ReasonActionButton
-                    label="Disburse"
-                    variant="primary"
-                    reasonLabel="Disbursement reference"
-                    placeholder="e.g. bank transfer reference"
-                    confirmLabel="Disburse"
-                    minLength={2}
-                    onConfirm={(reference) => handleDisburse(tx.id, reference)}
-                  />
-                )}
-                {tx.status === "DISPUTED" && (
+              {tx.status === "DISPUTED" && (
+                <div className="mt-4 flex flex-wrap gap-2">
                   <DisputeResolutionAction
                     onConfirm={(resolution, notes) => handleResolveDispute(tx.id, resolution, notes)}
                   />
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

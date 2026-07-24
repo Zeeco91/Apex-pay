@@ -135,31 +135,45 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
     <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
       <span className="text-sm font-medium text-foreground">{describeTransactionStatus(detail.status)}</span>
 
-      {detail.role === "PAYER" && detail.status === "AWAITING_PAYER_PROOF" && detail.potAccount && (
-        <div className="flex flex-col gap-3">
-          <div className="rounded-lg bg-background p-3 text-sm text-foreground">
-            <p className="font-medium">Send {formatNaira(detail.principalAmount)} to:</p>
-            <p className="mt-1 text-muted">{detail.potAccount.bankName}</p>
-            <p className="text-muted">
-              {detail.potAccount.accountNumber} — {detail.potAccount.accountName}
-            </p>
+      <div className="rounded-lg bg-background p-3 text-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+          {detail.role === "PAYER" ? "You're paying" : "You're being paid by"}
+        </p>
+        <p className="mt-1 font-medium text-foreground">{detail.counterpart.fullName}</p>
+        <p className="text-muted">{detail.counterpart.phone}</p>
+      </div>
+
+      {detail.role === "PAYER" &&
+        detail.status === "AWAITING_PAYER_PROOF" &&
+        (detail.payeeBankDetails ? (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg bg-background p-3 text-sm text-foreground">
+              <p className="font-medium">Send {formatNaira(detail.principalAmount)} to:</p>
+              <p className="mt-1 text-muted">{detail.payeeBankDetails.bankName}</p>
+              <p className="text-muted">
+                {detail.payeeBankDetails.accountNumber} — {detail.payeeBankDetails.accountName}
+              </p>
+            </div>
+            <div>
+              <label htmlFor={`proof-${detail.id}`} className="text-sm font-medium text-foreground">
+                Upload proof of payment
+              </label>
+              <input
+                ref={fileInputRef}
+                id={`proof-${detail.id}`}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => void handleUploadProof(event)}
+                disabled={isSubmitting}
+                className="mt-1 block w-full text-sm text-muted file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary-hover"
+              />
+            </div>
           </div>
-          <div>
-            <label htmlFor={`proof-${detail.id}`} className="text-sm font-medium text-foreground">
-              Upload proof of payment
-            </label>
-            <input
-              ref={fileInputRef}
-              id={`proof-${detail.id}`}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => void handleUploadProof(event)}
-              disabled={isSubmitting}
-              className="mt-1 block w-full text-sm text-muted file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary-hover"
-            />
-          </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted">
+            Waiting for {detail.counterpart.fullName} to add their bank details before you can pay.
+          </p>
+        ))}
 
       {detail.hasProof && (
         <button
@@ -171,11 +185,11 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
         </button>
       )}
 
-      {detail.role === "PAYEE" && detail.status === "DISBURSED" && (
+      {detail.role === "PAYEE" && detail.status === "PROOF_SUBMITTED" && (
         <div className="flex flex-col gap-2">
-          {detail.disbursementReference && (
-            <p className="text-sm text-muted">Reference: {detail.disbursementReference}</p>
-          )}
+          <p className="text-sm text-muted">
+            {detail.counterpart.fullName} has uploaded proof of payment. Confirm once you&apos;ve received it.
+          </p>
           <Button type="button" isLoading={isSubmitting} onClick={() => void handleConfirm()} className="self-start">
             {isSubmitting ? "Confirming…" : "Confirm receipt"}
           </Button>

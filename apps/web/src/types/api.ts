@@ -82,10 +82,9 @@ export interface JoinQueueResult {
   entry: QueueEntrySummary;
 }
 
-export interface PotAccount {
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
+export interface TransactionCounterpart {
+  fullName: string;
+  phone: string;
 }
 
 export interface TransactionDetail {
@@ -94,14 +93,12 @@ export interface TransactionDetail {
   status: TransactionStatus;
   role: "PAYER" | "PAYEE";
   principalAmount: number;
-  platformFeeAmount: number;
-  payeeDisbursedAmount: number;
-  potAccount: PotAccount | null;
+  // Who you're matched with — visible to both parties.
+  counterpart: TransactionCounterpart;
+  // Only populated for the payer — the payee's bank details, to pay them directly.
+  payeeBankDetails: PayoutBankDetails | null;
   hasProof: boolean;
   payerProofUploadedAt: string | null;
-  principalReceivedAt: string | null;
-  disbursedAt: string | null;
-  disbursementReference: string | null;
   payeeConfirmedAt: string | null;
   disputeReason: string | null;
   disputeRaisedAt: string | null;
