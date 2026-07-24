@@ -14,6 +14,7 @@ import {
   ArrowRightIcon,
   BanknoteIcon,
   GiftIcon,
+  LevelsIcon,
   QueueIcon,
 } from "@/components/dashboard/NavIcons";
 import type { QueueEntryStatus, QueueEntrySummary, ReferralBonusSummary } from "@/types/api";
@@ -33,9 +34,22 @@ const ACTIVE_STATUSES: QueueEntryStatus[] = [
   "MATCHED_AS_PAYEE",
 ];
 
+const ACTION_CARDS = [
+  {
+    href: "/dashboard/levels",
+    label: "Provide Help",
+    description: "Join a level and get matched with someone to pay.",
+    Icon: LevelsIcon,
+  },
+  {
+    href: "/dashboard/queue",
+    label: "Get Help",
+    description: "Get matched with someone who will pay you.",
+    Icon: QueueIcon,
+  },
+];
+
 const QUICK_LINKS = [
-  { href: "/dashboard/levels", label: "Provide help" },
-  { href: "/dashboard/queue", label: "Get help" },
   { href: "/dashboard/referrals", label: "Referrals & bonuses" },
   { href: "/dashboard/payout-details", label: "Payout details" },
 ];
@@ -108,6 +122,27 @@ export default function DashboardOverviewPage() {
           {loadError}
         </div>
       ) : null}
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        {ACTION_CARDS.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className="group flex items-center justify-between gap-4 rounded-2xl border border-border bg-background p-6 shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
+          >
+            <div className="flex items-center gap-4">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <card.Icon className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="text-lg font-semibold text-foreground">{card.label}</p>
+                <p className="mt-0.5 text-sm text-muted">{card.description}</p>
+              </div>
+            </div>
+            <ArrowRightIcon className="h-5 w-5 shrink-0 text-muted transition-colors group-hover:text-primary" />
+          </Link>
+        ))}
+      </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

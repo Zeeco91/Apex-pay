@@ -8,18 +8,14 @@ import { SITE_NAME } from "@/lib/constants";
 import { formatEnumLabel } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import {
-  LevelsIcon,
   LogOutIcon,
   OverviewIcon,
   PayoutIcon,
-  QueueIcon,
   ReferralsIcon,
 } from "./NavIcons";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", Icon: OverviewIcon },
-  { href: "/dashboard/levels", label: "Provide Help", Icon: LevelsIcon },
-  { href: "/dashboard/queue", label: "Get Help", Icon: QueueIcon },
   { href: "/dashboard/referrals", label: "Referrals", Icon: ReferralsIcon },
   { href: "/dashboard/payout-details", label: "Payout Details", Icon: PayoutIcon },
 ];
