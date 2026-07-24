@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -84,13 +83,6 @@ export class QueueService {
   async joinQueue(userId: string, levelId: string): Promise<JoinQueueResult> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-        if (user.kycStatus !== 'APPROVED') {
-          throw new ForbiddenException(
-            'Identity verification must be approved before you can join a queue.',
-          );
-        }
-
         const level = await tx.level.findUnique({ where: { id: levelId } });
         if (!level || !level.isActive) {
           throw new NotFoundException('Level not found');

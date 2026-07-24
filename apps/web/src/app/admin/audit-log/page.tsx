@@ -12,7 +12,6 @@ import type { AdminActionType, AdminAuditLogEntry, AdminUserSummary } from "@/ty
 
 const ENTITY_TYPES = [
   "User",
-  "KycRecord",
   "QueueEntry",
   "Level",
   "Transaction",
@@ -24,8 +23,6 @@ const ACTION_TYPES: AdminActionType[] = [
   "USER_SUSPENDED",
   "USER_BANNED",
   "USER_REINSTATED",
-  "KYC_APPROVED",
-  "KYC_REJECTED",
   "QUEUE_ENTRY_HELD",
   "QUEUE_ENTRY_RELEASED",
   "QUEUE_MANUAL_MATCH",

@@ -18,8 +18,8 @@ import {
 
 /**
  * End-to-end coverage for the platform's highest-stakes flows (plan §11): identity/auth, the
- * KYC gate that blocks queue participation, the full pooled contribution→disbursement cycle,
- * and admin MFA enforcement. These hit a real NestJS app instance (real Prisma, real Postgres —
+ * full pooled contribution→disbursement cycle, and admin MFA enforcement. These hit a real
+ * NestJS app instance (real Prisma, real Postgres —
  * the same DATABASE_URL as `npm run start:dev`) with only the SMS provider swapped for a
  * capturing test double, since no real SMS transport exists yet (plan §1).
  *
@@ -102,7 +102,7 @@ describe('Critical flows (e2e)', () => {
     await app.close();
   });
 
-  /** Creates an ACTIVE, KYC-approved admin directly via Prisma, with MFA left disabled — used
+  /** Creates an ACTIVE admin directly via Prisma, with MFA left disabled — used
    * only by the dedicated MFA-enforcement suite below, which tests that setup/enforcement
    * mechanic itself. Every other suite uses createTestAdmin (MFA pre-enabled) instead, since
    * re-proving MFA enforcement in every suite would just be redundant setup cost. */
@@ -121,7 +121,6 @@ describe('Critical flows (e2e)', () => {
         phoneVerifiedAt: new Date(),
         role: 'ADMIN',
         status: 'ACTIVE',
-        kycStatus: 'APPROVED',
       },
     });
     return { phone, pin };
@@ -163,7 +162,7 @@ describe('Critical flows (e2e)', () => {
     return verified.body.data.accessToken as string;
   }
 
-  /** Approved-KYC member, created directly for tests whose focus is downstream of KYC. */
+  /** Active member, created directly for tests whose focus is downstream of registration. */
   async function createApprovedMember(
     label: string,
   ): Promise<{ phone: string; pin: string; id: string }> {
@@ -177,7 +176,6 @@ describe('Critical flows (e2e)', () => {
         referralCode: uniqueReferralCode(label),
         phoneVerifiedAt: new Date(),
         status: 'ACTIVE',
-        kycStatus: 'APPROVED',
         payoutBankDetails: {
           bankName: 'Test Bank',
           accountNumber: `00${phoneCounter}00000${phoneCounter}`,
@@ -237,7 +235,7 @@ describe('Critical flows (e2e)', () => {
         .expect(201);
 
       expect(res.body.data.user.phone).toBe(phone);
-      expect(res.body.data.user.status).toBe('PENDING_KYC');
+      expect(res.body.data.user.status).toBe('ACTIVE');
       expect(res.body.data.user.mfaEnabled).toBe(false);
       accessToken = res.body.data.accessToken;
     });
@@ -272,109 +270,6 @@ describe('Critical flows (e2e)', () => {
     });
   });
 
-  describe('KYC gate: unverified users cannot join a queue; admin approval unblocks it', () => {
-    let member: { phone: string; pin: string; id: string };
-    let memberToken: string;
-    let adminToken: string;
-    let levelId: string;
-    let kycRecordId: string;
-
-    beforeAll(async () => {
-      const admin = await createTestAdmin();
-      adminToken = await loginAdminWithMfa(admin);
-
-      const levels = await request(app.getHttpServer())
-        .get('/api/v1/levels')
-        .expect(200);
-      levelId = levels.body.data[0].id;
-
-      const phone = uniquePhone();
-      const pin = '1234';
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/otp/request')
-        .send({ phone, purpose: 'REGISTER' })
-        .expect(201);
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/otp/verify')
-        .send({ phone, purpose: 'REGISTER', code: sms.codeFor(phone) })
-        .expect(201);
-      const registerRes = await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({ phone, fullName: 'E2E KYC User', pin })
-        .expect(201);
-      member = { phone, pin, id: registerRes.body.data.user.id };
-      memberToken = registerRes.body.data.accessToken;
-    });
-
-    it('blocks joining a queue before KYC is even submitted', async () => {
-      await request(app.getHttpServer())
-        .post(`/api/v1/levels/${levelId}/queue-entries`)
-        .set('Authorization', `Bearer ${memberToken}`)
-        .expect(403);
-    });
-
-    it('accepts a KYC submission, moving status to PENDING', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/users/me/kyc')
-        .set('Authorization', `Bearer ${memberToken}`)
-        .send({ idType: 'NIN', idNumber: '12345678901' })
-        .expect(201);
-
-      const me = await request(app.getHttpServer())
-        .get('/api/v1/users/me')
-        .set('Authorization', `Bearer ${memberToken}`)
-        .expect(200);
-      expect(me.body.data.kycStatus).toBe('PENDING');
-    });
-
-    it('still blocks joining a queue while KYC is only pending', async () => {
-      await request(app.getHttpServer())
-        .post(`/api/v1/levels/${levelId}/queue-entries`)
-        .set('Authorization', `Bearer ${memberToken}`)
-        .expect(403);
-    });
-
-    it('admin sees the submission in the pending KYC queue', async () => {
-      const pending = await request(app.getHttpServer())
-        .get('/api/v1/admin/kyc?status=PENDING')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
-      const record = pending.body.data.find(
-        (r: { userId: string }) => r.userId === member.id,
-      );
-      expect(record).toBeTruthy();
-      expect(record.idNumber).toBe('12345678901'); // decrypted correctly for admin review
-      kycRecordId = record.id;
-    });
-
-    it('approving the KYC record activates the account', async () => {
-      const approved = await request(app.getHttpServer())
-        .post(`/api/v1/admin/kyc/${kycRecordId}/approve`)
-        .set('Authorization', `Bearer ${adminToken}`)
-        .expect(201);
-      expect(approved.body.data.status).toBe('APPROVED');
-
-      // Membership status flip requires a fresh token (role/status are re-read live by
-      // JwtAccessStrategy on every request, but /users/me reflects it immediately either way).
-      const me = await request(app.getHttpServer())
-        .get('/api/v1/users/me')
-        .set('Authorization', `Bearer ${memberToken}`)
-        .expect(200);
-      expect(me.body.data.status).toBe('ACTIVE');
-      expect(me.body.data.kycStatus).toBe('APPROVED');
-    });
-
-    it('now allows joining the queue', async () => {
-      const joined = await request(app.getHttpServer())
-        .post(`/api/v1/levels/${levelId}/queue-entries`)
-        .set('Authorization', `Bearer ${memberToken}`)
-        .expect(201);
-      expect(joined.body.data.entry.status).toMatch(
-        /WAITING_FOR_PAYOUT|PENDING_JOIN_PAYMENT/,
-      );
-    });
-  });
-
   describe('Full pooled contribution cycle: join → match → proof → confirm → disburse → payee confirms', () => {
     let payer: { phone: string; pin: string; id: string };
     let payee: { phone: string; pin: string; id: string };
@@ -391,7 +286,6 @@ describe('Critical flows (e2e)', () => {
       const levels = await request(app.getHttpServer())
         .get('/api/v1/levels')
         .expect(200);
-      // A level distinct from the KYC-gate suite's, so the two suites' queues never interact.
       levelId = levels.body.data[1].id;
 
       // Defensive cleanup: an earlier failed run of this same suite (no dedicated test DB yet —

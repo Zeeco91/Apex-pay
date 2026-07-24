@@ -31,11 +31,6 @@ export default function TermsPage() {
         <ul>
           <li>You must be at least 18 years old and legally capable of entering a binding agreement.</li>
           <li>You must register with a phone number you control and verify it by one-time passcode (OTP).</li>
-          <li>
-            You must complete identity verification (KYC) before joining any level&apos;s queue. We collect an
-            identity document type and number, which is encrypted before storage — see our{" "}
-            <a href="/privacy">Privacy Policy</a> for detail.
-          </li>
           <li>You may hold only one account. Operating multiple accounts is a violation of these Terms (Section 8).</li>
           <li>
             You are responsible for keeping your PIN, and where enabled, your multi-factor authentication device,
@@ -112,14 +107,13 @@ export default function TermsPage() {
           We may suspend or ban an account that violates these Terms, is linked to fraudulent activity, or
           poses a risk to other members or to the platform, with a reason recorded internally for every such
           action. A suspended or banned account cannot join queues or receive payouts. Reinstatement is at our
-          discretion and may require renewed identity verification.
+          discretion.
         </p>
       </LegalSection>
 
       <LegalSection heading="8. Prohibited conduct">
         <ul>
           <li>Registering or controlling more than one account.</li>
-          <li>Providing false identity information or KYC documents.</li>
           <li>Self-referring, or coordinating referrals across accounts you control, to farm referral bonuses.</li>
           <li>Uploading falsified proof of payment.</li>
           <li>Using APEX PAY for money laundering, terrorist financing, or any other unlawful purpose.</li>
@@ -128,16 +122,7 @@ export default function TermsPage() {
         <p>We use heuristic fraud detection (for example, shared payout bank details across accounts, or unusual referral signup bursts) to flag accounts for human review. These flags direct review — they do not by themselves suspend an account.</p>
       </LegalSection>
 
-      <LegalSection heading="9. Identity verification and compliance">
-        <p>
-          Collecting funds from many members and redistributing them functions, in substance, as a
-          payment/money-transmission activity. We require identity verification consistent with standard
-          know-your-customer (KYC) and anti-money-laundering (AML) practice, and we cooperate with lawful
-          requests from Nigerian regulatory and law enforcement authorities.
-        </p>
-      </LegalSection>
-
-      <LegalSection heading="10. Limitation of liability">
+      <LegalSection heading="9. Limitation of liability">
         <p>
           To the fullest extent permitted by law, APEX PAY is not liable for indirect, incidental, or
           consequential losses arising from your use of the platform, including losses arising from delays in
@@ -146,7 +131,7 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="11. Changes to these Terms">
+      <LegalSection heading="10. Changes to these Terms">
         <p>
           We may update these Terms as the platform evolves. Material changes will be announced in-app before
           they take effect. Continuing to use APEX PAY after a change takes effect constitutes acceptance of
@@ -154,11 +139,11 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="12. Governing law">
+      <LegalSection heading="11. Governing law">
         <p>These Terms are governed by the laws of the Federal Republic of Nigeria.</p>
       </LegalSection>
 
-      <LegalSection heading="13. Contact">
+      <LegalSection heading="12. Contact">
         <p>Questions about these Terms can be directed to our support team from your dashboard once support channels are live.</p>
       </LegalSection>
     </LegalPageLayout>

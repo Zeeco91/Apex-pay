@@ -7,20 +7,15 @@ import { listUsers, suspendUser, banUser, reinstateUser } from "@/lib/api/admin/
 import { formatEnumLabel } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { ReasonActionButton } from "@/components/admin/ReasonActionButton";
-import type { AdminUserSummary, KycStatus, UserStatus } from "@/types/api";
+import type { AdminUserSummary, UserStatus } from "@/types/api";
 
+// PENDING_KYC is retained in UserStatus only for historical records predating KYC's removal —
+// no user can be assigned this status anymore, but the type/tone map must stay exhaustive.
 const STATUS_TONE: Record<UserStatus, BadgeTone> = {
   ACTIVE: "success",
   PENDING_KYC: "warning",
   SUSPENDED: "danger",
   BANNED: "danger",
-};
-
-const KYC_TONE: Record<KycStatus, BadgeTone> = {
-  APPROVED: "success",
-  PENDING: "warning",
-  REJECTED: "danger",
-  NOT_SUBMITTED: "neutral",
 };
 
 export default function AdminUsersPage() {
@@ -102,7 +97,6 @@ export default function AdminUsersPage() {
         >
           <option value="">All statuses</option>
           <option value="ACTIVE">Active</option>
-          <option value="PENDING_KYC">Pending KYC</option>
           <option value="SUSPENDED">Suspended</option>
           <option value="BANNED">Banned</option>
         </select>
@@ -122,7 +116,6 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3 font-semibold">Name</th>
                 <th className="px-4 py-3 font-semibold">Phone</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">KYC</th>
                 <th className="px-4 py-3 font-semibold">Joined</th>
                 <th className="px-4 py-3 font-semibold">Actions</th>
               </tr>
@@ -135,13 +128,10 @@ export default function AdminUsersPage() {
                   <td className="px-4 py-3">
                     <Badge tone={STATUS_TONE[user.status]}>{formatEnumLabel(user.status)}</Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    <Badge tone={KYC_TONE[user.kycStatus]}>{formatEnumLabel(user.kycStatus)}</Badge>
-                  </td>
                   <td className="px-4 py-3 text-muted">{new Date(user.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      {(user.status === "ACTIVE" || user.status === "PENDING_KYC") && (
+                      {user.status === "ACTIVE" && (
                         <ReasonActionButton
                           label="Suspend"
                           reasonLabel="Suspension reason"

@@ -6,7 +6,7 @@ import {
 import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogService } from '../../common/audit-log/audit-log.service';
-import type { KycStatus, User, UserRole, UserStatus } from '@prisma/client';
+import type { User, UserRole, UserStatus } from '@prisma/client';
 
 const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — avoids user transcription errors
 
@@ -45,7 +45,6 @@ export function toPublicUser(user: User): PublicUser {
     referredByUserId: user.referredByUserId,
     role: user.role,
     status: user.status,
-    kycStatus: user.kycStatus,
     payoutBankDetails: user.payoutBankDetails,
     mfaEnabled: user.mfaEnabled,
     createdAt: user.createdAt,
@@ -61,7 +60,6 @@ export interface AdminUserSummary {
   fullName: string;
   role: UserRole;
   status: UserStatus;
-  kycStatus: KycStatus;
   referralCode: string;
   referredByUserId: string | null;
   payoutBankDetails: PayoutBankDetails | null;
@@ -69,7 +67,7 @@ export interface AdminUserSummary {
   lastLoginAt: Date | null;
 }
 
-const SUSPENDABLE_STATUSES: UserStatus[] = ['ACTIVE', 'PENDING_KYC'];
+const SUSPENDABLE_STATUSES: UserStatus[] = ['ACTIVE'];
 
 @Injectable()
 export class UsersService {
@@ -173,14 +171,12 @@ export class UsersService {
 
   async listForAdmin(filters: {
     status?: UserStatus;
-    kycStatus?: KycStatus;
     role?: UserRole;
     search?: string;
   }): Promise<AdminUserSummary[]> {
     const users = await this.prisma.user.findMany({
       where: {
         status: filters.status,
-        kycStatus: filters.kycStatus,
         role: filters.role,
         ...(filters.search
           ? {
@@ -272,13 +268,9 @@ export class UsersService {
       );
     }
 
-    // KYC approval, not admin discretion, is what actually unlocks queue participation — a
-    // reinstated user without approved KYC lands back at PENDING_KYC, not ACTIVE.
-    const nextStatus: UserStatus =
-      user.kycStatus === 'APPROVED' ? 'ACTIVE' : 'PENDING_KYC';
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: { status: nextStatus },
+      data: { status: 'ACTIVE' },
     });
     await this.auditLog.record({
       adminUserId: adminId,
@@ -323,7 +315,6 @@ function toAdminSummary(user: User): AdminUserSummary {
     fullName: user.fullName,
     role: user.role,
     status: user.status,
-    kycStatus: user.kycStatus,
     referralCode: user.referralCode,
     referredByUserId: user.referredByUserId,
     payoutBankDetails: user.payoutBankDetails as PayoutBankDetails | null,

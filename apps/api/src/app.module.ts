@@ -12,7 +12,6 @@ import { SmsModule } from './common/sms/sms.module';
 import { EmailModule } from './common/email/email.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { KycModule } from './modules/kyc/kyc.module';
 import { LevelsModule } from './modules/levels/levels.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
@@ -41,7 +40,6 @@ import { SupportChatModule } from './modules/support-chat/support-chat.module';
     HealthModule,
     UsersModule,
     AuthModule,
-    KycModule,
     LevelsModule,
     QueueModule,
     TransactionsModule,

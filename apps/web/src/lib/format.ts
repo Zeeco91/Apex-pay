@@ -6,7 +6,7 @@ import type {
   WithdrawalRequestStatus,
 } from "@/types/api";
 
-/** "PENDING_KYC" -> "Pending Kyc". Used for rendering enum-shaped API values as UI labels. */
+/** "ADMIN_HOLD" -> "Admin Hold". Used for rendering enum-shaped API values as UI labels. */
 export function formatEnumLabel(value: string): string {
   return value
     .replace(/_/g, " ")

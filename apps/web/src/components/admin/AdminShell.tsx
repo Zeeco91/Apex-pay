@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/Button";
 const NAV_ITEMS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/users", label: "Users" },
-  { href: "/admin/kyc", label: "KYC Review" },
   { href: "/admin/queues", label: "Queues" },
   { href: "/admin/transactions", label: "Transactions" },
   { href: "/admin/treasury", label: "Treasury" },

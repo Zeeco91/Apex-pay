@@ -7,11 +7,6 @@ const SECTIONS = [
     description: "Search members, review status, suspend, ban, or reinstate accounts.",
   },
   {
-    href: "/admin/kyc",
-    title: "KYC Review",
-    description: "Approve or reject pending identity verification submissions.",
-  },
-  {
     href: "/admin/queues",
     title: "Queues",
     description: "Inspect a level's live queue, manually match entries, or place holds.",

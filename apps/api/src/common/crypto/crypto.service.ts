@@ -7,7 +7,7 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 
 /**
- * Column-level encryption for sensitive fields (KYC ID numbers, bank details — see plan §3, §7).
+ * Column-level encryption for sensitive fields (bank details, MFA secrets — see plan §3, §7).
  * Ciphertext format: `${ivHex}:${authTagHex}:${encryptedHex}` — self-contained, no external lookup needed to decrypt.
  */
 @Injectable()

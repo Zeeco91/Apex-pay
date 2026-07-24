@@ -1,6 +1,5 @@
 export type UserRole = "USER" | "SUPPORT" | "ADMIN" | "SUPER_ADMIN";
 export type UserStatus = "PENDING_KYC" | "ACTIVE" | "SUSPENDED" | "BANNED";
-export type KycStatus = "NOT_SUBMITTED" | "PENDING" | "APPROVED" | "REJECTED";
 
 export interface PayoutBankDetails {
   bankName: string;
@@ -18,7 +17,6 @@ export interface PublicUser {
   referredByUserId: string | null;
   role: UserRole;
   status: UserStatus;
-  kycStatus: KycStatus;
   payoutBankDetails: PayoutBankDetails | null;
   mfaEnabled: boolean;
   createdAt: string;
@@ -161,24 +159,11 @@ export interface AdminUserSummary {
   fullName: string;
   role: UserRole;
   status: UserStatus;
-  kycStatus: KycStatus;
   referralCode: string;
   referredByUserId: string | null;
   payoutBankDetails: PayoutBankDetails | null;
   createdAt: string;
   lastLoginAt: string | null;
-}
-
-export interface AdminKycRecordView {
-  id: string;
-  userId: string;
-  userFullName: string;
-  userPhone: string;
-  idType: string;
-  idNumber: string;
-  status: KycStatus;
-  rejectionReason: string | null;
-  createdAt: string;
 }
 
 export interface AdminQueueEntryView {
@@ -314,8 +299,6 @@ export type AdminActionType =
   | "USER_SUSPENDED"
   | "USER_BANNED"
   | "USER_REINSTATED"
-  | "KYC_APPROVED"
-  | "KYC_REJECTED"
   | "QUEUE_ENTRY_HELD"
   | "QUEUE_ENTRY_RELEASED"
   | "QUEUE_MANUAL_MATCH"

@@ -23,7 +23,7 @@ export const UPLOADS_ROOT = join(process.cwd(), 'uploads');
  * volume). This previously threw on construction when NODE_ENV=production, but every provider
  * in this module (this one, SmsModule's ConsoleSmsProvider) gets eagerly instantiated at boot
  * regardless of whether file upload is ever used, so that guard crashed the whole app rather
- * than only the KYC/proof-of-payment upload paths that actually need a real provider. Removed
+ * than only the proof-of-payment upload paths that actually need a real provider. Removed
  * so registration/login (which don't touch file storage) can run — file upload remains broken
  * in production until a real FileStorageProvider is wired in.
  */

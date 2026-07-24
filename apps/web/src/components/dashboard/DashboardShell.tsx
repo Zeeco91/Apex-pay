@@ -26,7 +26,6 @@ const NAV_ITEMS = [
 
 const STATUS_TONE: Record<string, BadgeTone> = {
   ACTIVE: "success",
-  PENDING_KYC: "warning",
   SUSPENDED: "danger",
   BANNED: "danger",
 };

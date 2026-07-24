@@ -3,7 +3,7 @@ import { LegalPageLayout, LegalSection } from "@/components/legal/LegalPageLayou
 
 export const metadata: Metadata = {
   title: "Privacy Policy — APEX PAY",
-  description: "How APEX PAY collects, protects, and uses your account and identity data.",
+  description: "How APEX PAY collects, protects, and uses your account data.",
 };
 
 const LAST_UPDATED = "18 July 2026";
@@ -14,7 +14,6 @@ export default function PrivacyPage() {
       <LegalSection heading="1. Data we collect">
         <ul>
           <li><strong>Account data:</strong> phone number, full name, and a PIN (stored only as a salted, irreversible hash — we never store or can see your raw PIN).</li>
-          <li><strong>Identity verification (KYC) data:</strong> identity document type and number, collected once before you can join a queue.</li>
           <li><strong>Payout details:</strong> bank name, account number, and account name, used only to send you a payout when it&apos;s your turn.</li>
           <li><strong>Transaction records:</strong> queue entries, contribution/payout history, referral relationships, and any dispute you raise.</li>
           <li><strong>Proof-of-payment images</strong> you upload when confirming a contribution.</li>
@@ -25,10 +24,10 @@ export default function PrivacyPage() {
 
       <LegalSection heading="2. How your data is protected">
         <ul>
-          <li>Your KYC identity number, payout bank details, and MFA secret (where applicable) are encrypted at the database column level using AES-256-GCM — not just protected by access controls, but unreadable even from a raw database export without the separate encryption key.</li>
+          <li>Your payout bank details and MFA secret (where applicable) are encrypted at the database column level using AES-256-GCM — not just protected by access controls, but unreadable even from a raw database export without the separate encryption key.</li>
           <li>Your PIN is hashed with Argon2id, a memory-hard hashing algorithm designed to resist brute-force attacks even if a database were ever compromised.</li>
           <li>Login sessions use short-lived access tokens plus a separate, httpOnly, non-JavaScript-readable session cookie, reducing exposure if a browser is compromised by malicious script.</li>
-          <li>Every discretionary or adverse action an administrator takes on your account (suspension, KYC decisions, dispute resolution, and similar) is logged with the administrator&apos;s identity, a reason, and a before/after record — administrators cannot act on your account silently or without an auditable trail.</li>
+          <li>Every discretionary or adverse action an administrator takes on your account (suspension, dispute resolution, and similar) is logged with the administrator&apos;s identity, a reason, and a before/after record — administrators cannot act on your account silently or without an auditable trail.</li>
           <li>Admin accounts require multi-factor authentication in addition to a password, specifically because admin actions can move real money.</li>
         </ul>
       </LegalSection>
@@ -36,7 +35,6 @@ export default function PrivacyPage() {
       <LegalSection heading="3. Why we use your data">
         <ul>
           <li>To operate the contribution queue: matching, confirming, and disbursing payouts.</li>
-          <li>To verify your identity and meet know-your-customer (KYC) and anti-money-laundering (AML) obligations.</li>
           <li>To detect and investigate fraud, including heuristic checks such as shared payout bank details across accounts or unusual referral signup patterns.</li>
           <li>To communicate with you about your account, transactions, and material changes to our terms or this policy.</li>
           <li>To comply with lawful requests from Nigerian regulatory or law enforcement authorities.</li>
@@ -55,9 +53,9 @@ export default function PrivacyPage() {
       <LegalSection heading="5. How long we keep your data">
         <p>
           We retain account and transaction data for as long as your account is active and for a further period
-          afterward as required for financial record-keeping and AML compliance obligations under Nigerian law.
-          Proof-of-payment images are retained for as long as needed to resolve any related dispute, then
-          deleted on a rolling basis.
+          afterward as required for financial record-keeping obligations under Nigerian law. Proof-of-payment
+          images are retained for as long as needed to resolve any related dispute, then deleted on a rolling
+          basis.
         </p>
       </LegalSection>
 

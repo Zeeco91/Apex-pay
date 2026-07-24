@@ -1,13 +1,12 @@
 import { apiFetch } from "../client";
-import type { AdminUserSummary, KycStatus, UserRole, UserStatus } from "@/types/api";
+import type { AdminUserSummary, UserRole, UserStatus } from "@/types/api";
 
 export async function listUsers(
   accessToken: string,
-  filters: { status?: UserStatus; kycStatus?: KycStatus; role?: UserRole; search?: string } = {},
+  filters: { status?: UserStatus; role?: UserRole; search?: string } = {},
 ): Promise<AdminUserSummary[]> {
   const params = new URLSearchParams();
   if (filters.status) params.set("status", filters.status);
-  if (filters.kycStatus) params.set("kycStatus", filters.kycStatus);
   if (filters.role) params.set("role", filters.role);
   if (filters.search) params.set("search", filters.search);
   const query = params.toString();

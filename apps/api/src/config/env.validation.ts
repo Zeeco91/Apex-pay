@@ -21,7 +21,7 @@ const envSchema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
 
-  // Column-level encryption (KYC IDs, bank details) — 32-byte key, hex-encoded (64 hex chars).
+  // Column-level encryption (bank details) — 32-byte key, hex-encoded (64 hex chars).
   ENCRYPTION_KEY: z
     .string()
     .regex(

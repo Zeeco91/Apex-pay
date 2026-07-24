@@ -7,7 +7,7 @@ import { ApiError } from "@/lib/api/client";
 import { listMyQueueEntries } from "@/lib/api/queue";
 import { getMyReferralBonuses } from "@/lib/api/referrals";
 import { formatNaira } from "@/lib/constants";
-import { formatEnumLabel, describeQueueEntryStatus } from "@/lib/format";
+import { describeQueueEntryStatus } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { StatCard } from "@/components/dashboard/StatCard";
 import {
@@ -15,16 +15,8 @@ import {
   BanknoteIcon,
   GiftIcon,
   QueueIcon,
-  ShieldIcon,
 } from "@/components/dashboard/NavIcons";
 import type { QueueEntryStatus, QueueEntrySummary, ReferralBonusSummary } from "@/types/api";
-
-const KYC_TONE: Record<string, BadgeTone> = {
-  APPROVED: "success",
-  PENDING: "warning",
-  REJECTED: "danger",
-  NOT_SUBMITTED: "neutral",
-};
 
 const QUEUE_STATUS_TONE: Record<QueueEntryStatus, BadgeTone> = {
   PENDING_JOIN_PAYMENT: "warning",
@@ -106,7 +98,7 @@ export default function DashboardOverviewPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Welcome back, {user.fullName.split(" ")[0]}
+          Welcome back, {user.fullName}
         </h1>
         <p className="mt-1 text-sm text-muted">Here&apos;s a snapshot of your account.</p>
       </div>
@@ -117,13 +109,7 @@ export default function DashboardOverviewPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Identity verification"
-          value={<Badge tone={KYC_TONE[user.kycStatus] ?? "neutral"}>{formatEnumLabel(user.kycStatus)}</Badge>}
-          hint={user.kycStatus === "APPROVED" ? "Verified" : "Required before joining a queue"}
-          icon={<ShieldIcon />}
-        />
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Active queue entries"
           value={isLoading ? "—" : activeEntryCount}
