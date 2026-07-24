@@ -98,14 +98,6 @@ export default function DashboardLevelsPage() {
                 <span className="mt-2 text-3xl font-bold text-foreground">
                   {formatNaira(level.contributionAmount)}
                 </span>
-                <span className="mt-3 text-sm text-muted">
-                  {level.incentiveBonusRateOfPrincipal > 0
-                    ? `Up to ${level.incentiveBonusRateOfPrincipal}% incentive bonus, subject to pool availability`
-                    : "Entry level — no incentive bonus"}
-                </span>
-                <span className="mt-1 text-xs text-muted">
-                  {level.feePercent}% platform fee applies when your payout is disbursed
-                </span>
 
                 {activeEntry ? (
                   <div className="mt-6 rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
