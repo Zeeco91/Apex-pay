@@ -206,10 +206,18 @@ export class AuthController {
   }
 
   private setRefreshCookie(res: Response, tokens: IssuedTokens): void {
+    // The web app and API are deployed on different origins in production (e.g. a Vercel
+    // frontend calling a separately-hosted API), so the refresh cookie must be sent
+    // cross-site. SameSite=Lax is dropped on cross-site fetch/XHR requests — only
+    // top-level navigations — which silently broke session restore on every page
+    // reload. SameSite=None requires Secure, so it's only safe to use once we're on
+    // https (production); locally, frontend and API share the "localhost" site so Lax
+    // still works and avoids needing https in dev.
+    const isProduction = this.config.get('NODE_ENV', { infer: true }) === 'production';
     res.cookie(REFRESH_COOKIE_NAME, tokens.refreshToken, {
       httpOnly: true,
-      secure: this.config.get('NODE_ENV', { infer: true }) === 'production',
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: REFRESH_COOKIE_PATH,
       expires: tokens.refreshTokenExpiresAt,
     });
