@@ -6,6 +6,7 @@ import { updatePayoutBankDetails } from "@/lib/api/users";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { PayoutIcon } from "@/components/dashboard/NavIcons";
 
 const COMMON_BANKS = [
@@ -32,8 +33,9 @@ export default function PayoutDetailsPage() {
   const [accountName, setAccountName] = useState(user?.payoutBankDetails?.accountName ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<"saved" | "updated" | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSavedDetails, setHasSavedDetails] = useState(Boolean(user?.payoutBankDetails));
 
   if (!user || !accessToken) return null;
 
@@ -49,9 +51,10 @@ export default function PayoutDetailsPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setFormError(null);
-    setSuccess(false);
+    setSuccess(null);
     if (!validate()) return;
 
+    const wasAlreadySaved = hasSavedDetails;
     setIsSubmitting(true);
     try {
       await updatePayoutBankDetails(accessToken!, {
@@ -60,7 +63,8 @@ export default function PayoutDetailsPage() {
         accountName: accountName.trim(),
       });
       await refreshUser();
-      setSuccess(true);
+      setHasSavedDetails(true);
+      setSuccess(wasAlreadySaved ? "updated" : "saved");
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Couldn't save your details. Please try again.");
     } finally {
@@ -75,7 +79,12 @@ export default function PayoutDetailsPage() {
           <PayoutIcon />
         </span>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Payout bank details</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Bank details</h1>
+            <Badge tone={hasSavedDetails ? "success" : "neutral"}>
+              {hasSavedDetails ? "Saved" : "Not saved"}
+            </Badge>
+          </div>
           <p className="mt-1 text-sm text-muted">
             This is the account we&apos;ll disburse your payout to. Double-check it — an incorrect
             account number can delay your payout.
@@ -144,12 +153,18 @@ export default function PayoutDetailsPage() {
         )}
         {success && (
           <div role="status" className="rounded-xl border border-success/30 bg-success/5 p-4 text-sm text-success">
-            Payout details saved.
+            {success === "updated" ? "Bank details updated." : "Bank details saved."}
           </div>
         )}
 
         <Button type="submit" isLoading={isSubmitting}>
-          {isSubmitting ? "Saving…" : "Save payout details"}
+          {isSubmitting
+            ? hasSavedDetails
+              ? "Updating…"
+              : "Saving…"
+            : hasSavedDetails
+              ? "Update bank details"
+              : "Save bank details"}
         </Button>
       </form>
     </div>

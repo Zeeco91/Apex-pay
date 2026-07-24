@@ -17,7 +17,7 @@ import {
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", Icon: OverviewIcon },
   { href: "/dashboard/referrals", label: "Referrals", Icon: ReferralsIcon },
-  { href: "/dashboard/payout-details", label: "Payout Details", Icon: PayoutIcon },
+  { href: "/dashboard/payout-details", label: "Bank Details", Icon: PayoutIcon },
 ];
 
 const STATUS_TONE: Record<string, BadgeTone> = {
