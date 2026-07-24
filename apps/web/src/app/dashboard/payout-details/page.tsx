@@ -6,6 +6,7 @@ import { updatePayoutBankDetails } from "@/lib/api/users";
 import { ApiError } from "@/lib/api/client";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { PayoutIcon } from "@/components/dashboard/NavIcons";
 
 const COMMON_BANKS = [
   "Access Bank",
@@ -69,13 +70,24 @@ export default function PayoutDetailsPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-2xl font-bold tracking-tight text-foreground">Payout bank details</h1>
-      <p className="mt-1 text-sm text-muted">
-        This is the account we&apos;ll disburse your payout to. Double-check it — an incorrect account
-        number can delay your payout.
-      </p>
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <PayoutIcon />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Payout bank details</h1>
+          <p className="mt-1 text-sm text-muted">
+            This is the account we&apos;ll disburse your payout to. Double-check it — an incorrect
+            account number can delay your payout.
+          </p>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-5">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="mt-8 flex flex-col gap-5 rounded-2xl border border-border bg-background p-6 shadow-sm"
+      >
         <div className="flex flex-col gap-1.5">
           <label htmlFor="bankName" className="text-sm font-medium text-foreground">
             Bank name

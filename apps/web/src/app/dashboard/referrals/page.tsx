@@ -17,6 +17,8 @@ import {
 } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { BanknoteIcon, GiftIcon, ReferralsIcon } from "@/components/dashboard/NavIcons";
 import type {
   ReferralBonusStatus,
   ReferralBonusSummary,
@@ -124,7 +126,33 @@ export default function DashboardReferralsPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-border bg-background p-6">
+      <div className="grid gap-6 sm:grid-cols-3">
+        <StatCard
+          label="People referred"
+          value={state === null ? "—" : state.referrals.length}
+          icon={<ReferralsIcon />}
+        />
+        <StatCard
+          label="Total bonuses earned"
+          value={state === null ? "—" : formatNaira(state.bonuses.reduce((sum, b) => sum + b.bonusAmount, 0))}
+          icon={<GiftIcon />}
+        />
+        <StatCard
+          label="Available to withdraw"
+          value={
+            state === null
+              ? "—"
+              : formatNaira(
+                  state.bonuses
+                    .filter((b) => b.status === "ELIGIBLE_FOR_WITHDRAWAL" && !b.hasWithdrawalRequest)
+                    .reduce((sum, b) => sum + b.bonusAmount, 0),
+                )
+          }
+          icon={<BanknoteIcon />}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-wide text-muted">Your referral code</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <code className="rounded-lg bg-surface px-3 py-2 text-lg font-bold tracking-wide text-foreground">
