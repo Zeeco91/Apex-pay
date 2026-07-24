@@ -9,13 +9,13 @@ const ACTION_CARDS = [
   {
     href: "/dashboard/levels",
     label: "Provide Help",
-    description: "Join a level and get matched with someone to pay.",
+    description: "I want to buy Apex [Make Donation]",
     Icon: LevelsIcon,
   },
   {
     href: "/dashboard/queue",
     label: "Get Help",
-    description: "Get matched with someone who will pay you.",
+    description: "I want to sell Apex [Make a Withdrawal]",
     Icon: QueueIcon,
   },
 ];
