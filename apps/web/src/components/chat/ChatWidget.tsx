@@ -30,7 +30,10 @@ export function ChatWidget() {
     !!user &&
     user.role !== "ADMIN" &&
     user.role !== "SUPER_ADMIN" &&
-    !pathname.startsWith("/admin");
+    !pathname.startsWith("/admin") &&
+    // The dashboard has a dedicated full-page Support chat — avoid stacking the floating
+    // widget on top of it.
+    pathname !== "/dashboard/support";
 
   // Lightweight poll purely for the unread badge on the closed bubble.
   useEffect(() => {

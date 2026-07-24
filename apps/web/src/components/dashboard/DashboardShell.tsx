@@ -12,12 +12,14 @@ import {
   OverviewIcon,
   PayoutIcon,
   ReferralsIcon,
+  SupportIcon,
 } from "./NavIcons";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", Icon: OverviewIcon },
   { href: "/dashboard/referrals", label: "Referrals", Icon: ReferralsIcon },
   { href: "/dashboard/payout-details", label: "Bank Details", Icon: PayoutIcon },
+  { href: "/dashboard/support", label: "Support", Icon: SupportIcon },
 ];
 
 const STATUS_TONE: Record<string, BadgeTone> = {
