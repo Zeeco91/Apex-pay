@@ -18,8 +18,8 @@ import {
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", Icon: OverviewIcon },
-  { href: "/dashboard/levels", label: "Levels", Icon: LevelsIcon },
-  { href: "/dashboard/queue", label: "My Queue", Icon: QueueIcon },
+  { href: "/dashboard/levels", label: "Provide Help", Icon: LevelsIcon },
+  { href: "/dashboard/queue", label: "Get Help", Icon: QueueIcon },
   { href: "/dashboard/referrals", label: "Referrals", Icon: ReferralsIcon },
   { href: "/dashboard/payout-details", label: "Payout Details", Icon: PayoutIcon },
 ];

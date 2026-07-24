@@ -34,8 +34,8 @@ const ACTIVE_STATUSES: QueueEntryStatus[] = [
 ];
 
 const QUICK_LINKS = [
-  { href: "/dashboard/levels", label: "Browse savings levels" },
-  { href: "/dashboard/queue", label: "View my queue" },
+  { href: "/dashboard/levels", label: "Provide help" },
+  { href: "/dashboard/queue", label: "Get help" },
   { href: "/dashboard/referrals", label: "Referrals & bonuses" },
   { href: "/dashboard/payout-details", label: "Payout details" },
 ];
@@ -111,7 +111,7 @@ export default function DashboardOverviewPage() {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          label="Active queue entries"
+          label="Active entries"
           value={isLoading ? "—" : activeEntryCount}
           hint="Levels you're currently in"
           icon={<QueueIcon />}
@@ -132,7 +132,7 @@ export default function DashboardOverviewPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="rounded-2xl border border-border bg-background p-6 lg:col-span-2">
-          <h2 className="text-lg font-semibold text-foreground">Recent queue activity</h2>
+          <h2 className="text-lg font-semibold text-foreground">Recent activity</h2>
           {isLoading ? (
             <div className="mt-4 flex flex-col gap-3" aria-busy="true" aria-label="Loading recent activity">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -143,7 +143,7 @@ export default function DashboardOverviewPage() {
             <p className="mt-4 text-sm text-muted">
               You haven&apos;t joined a level yet.{" "}
               <Link href="/dashboard/levels" className="font-medium text-primary underline underline-offset-4">
-                Browse levels
+                Provide help
               </Link>{" "}
               to get started.
             </p>

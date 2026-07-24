@@ -65,11 +65,11 @@ export default function DashboardLevelsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Savings levels</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Provide help</h1>
         <p className="mt-1 text-sm text-muted">
           Joining matches you FIFO with the oldest member waiting in that level.{" "}
           <Link href="/dashboard/queue" className="font-medium text-primary underline underline-offset-4">
-            View my queue entries →
+            Get help →
           </Link>
         </p>
       </div>
@@ -119,7 +119,7 @@ export default function DashboardLevelsPage() {
                     isLoading={isJoining}
                     onClick={() => void handleJoin(level.id)}
                   >
-                    {isJoining ? "Joining…" : "Join queue"}
+                    {isJoining ? "Joining…" : "Join"}
                   </Button>
                 )}
                 {joinError && (
