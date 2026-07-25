@@ -18,14 +18,14 @@ export const UPLOADS_ROOT = join(process.cwd(), 'uploads');
  * issues HMAC-signed, short-lived URLs served back through FilesController — nothing under
  * `uploads/` is ever served without a valid, unexpired token.
  *
- * NOT production-ready: getSignedUrl() below hardcodes `localhost`, so generated links are
- * unreachable for real users, and anything saved here is lost on every redeploy (no persistent
+ * NOT fully production-ready: getSignedUrl() below now resolves a real, browser-reachable base
+ * URL (PUBLIC_API_URL, or Railway's auto-injected domain, or localhost for local dev — see
+ * publicBaseUrl()), but anything saved here is still lost on every redeploy (no persistent
  * volume). This previously threw on construction when NODE_ENV=production, but every provider
  * in this module (this one, SmsModule's ConsoleSmsProvider) gets eagerly instantiated at boot
  * regardless of whether file upload is ever used, so that guard crashed the whole app rather
  * than only the proof-of-payment upload paths that actually need a real provider. Removed
- * so registration/login (which don't touch file storage) can run — file upload remains broken
- * in production until a real FileStorageProvider is wired in.
+ * so registration/login (which don't touch file storage) can run.
  */
 @Injectable()
 export class LocalDiskStorageProvider implements FileStorageProvider {
@@ -52,8 +52,20 @@ export class LocalDiskStorageProvider implements FileStorageProvider {
   getSignedUrl(key: string): string {
     const expires = Date.now() + SIGNED_URL_TTL_SECONDS * 1000;
     const token = this.sign(key, expires);
+    return `${this.publicBaseUrl()}/api/v1/files/${key}?expires=${expires}&token=${token}`;
+  }
+
+  private publicBaseUrl(): string {
+    const configured = this.config.get('PUBLIC_API_URL', { infer: true });
+    if (configured) return configured.replace(/\/$/, '');
+
+    // Railway injects this for any service with a public domain — a zero-config default for
+    // our actual deployment target, without hardcoding a specific domain here.
+    const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+    if (railwayDomain) return `https://${railwayDomain}`;
+
     const port = this.config.get('PORT', { infer: true });
-    return `http://localhost:${port}/api/v1/files/${key}?expires=${expires}&token=${token}`;
+    return `http://localhost:${port}`;
   }
 
   verifyToken(key: string, expires: number, token: string): boolean {

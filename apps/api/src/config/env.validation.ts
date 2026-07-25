@@ -54,6 +54,11 @@ const envSchema = z.object({
   FILE_ACCESS_HMAC_SECRET: z
     .string()
     .min(32, 'FILE_ACCESS_HMAC_SECRET must be at least 32 characters'),
+
+  // Public URL this API is reachable at — used to build proof-of-payment file links
+  // (LocalDiskStorageProvider is dev-only and needs a real, browser-reachable address).
+  // Falls back to Railway's auto-injected RAILWAY_PUBLIC_DOMAIN, then localhost for local dev.
+  PUBLIC_API_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

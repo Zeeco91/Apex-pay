@@ -122,14 +122,15 @@ export default function DashboardLevelsPage() {
                 transactionId={activeEntry.transactionId!}
                 onEntryStatusChange={() => void loadActiveEntry()}
               />
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                isLoading={isCancelling}
                 onClick={() => void handleCancel()}
-                disabled={isCancelling}
-                className="self-start text-sm font-medium text-muted underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+                className="self-start"
               >
-                {isCancelling ? "Cancelling…" : "Cancel"}
-              </button>
+                {isCancelling ? "Cancelling…" : "Cancel and join another level"}
+              </Button>
             </div>
           ) : (
             <div className="mt-6 flex flex-col gap-2">
