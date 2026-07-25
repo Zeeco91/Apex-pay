@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { cancelQueueEntry, listMyQueueEntries } from "@/lib/api/queue";
-import { getLevelQueueStats } from "@/lib/api/levels";
+import { listMyQueueEntries } from "@/lib/api/queue";
 import { ApiError } from "@/lib/api/client";
 import { formatNaira } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
@@ -20,10 +19,8 @@ const ACTIVE_STATUSES: QueueEntryStatus[] = [
 export default function DashboardQueuePage() {
   const { accessToken } = useAuth();
   const [entry, setEntry] = useState<QueueEntrySummary | null>(null);
-  const [position, setPosition] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -31,19 +28,7 @@ export default function DashboardQueuePage() {
   const loadEntry = useCallback(async () => {
     if (!accessToken) return;
     const entries = await listMyQueueEntries(accessToken);
-    const active = entries.find((e) => ACTIVE_STATUSES.includes(e.status)) ?? null;
-    setEntry(active);
-
-    if (active?.status === "WAITING_FOR_PAYOUT") {
-      try {
-        const stats = await getLevelQueueStats(accessToken, active.levelId);
-        setPosition(stats.yourEntry?.position ?? null);
-      } catch {
-        // Position is a nice-to-have — the panel still renders without it.
-      }
-    } else {
-      setPosition(null);
-    }
+    setEntry(entries.find((e) => ACTIVE_STATUSES.includes(e.status)) ?? null);
   }, [accessToken]);
 
   useEffect(() => {
@@ -66,21 +51,6 @@ export default function DashboardQueuePage() {
       cancelled = true;
     };
   }, [accessToken, loadEntry]);
-
-  async function handleCancel() {
-    if (!accessToken || !entry) return;
-    setIsCancelling(true);
-    setActionError(null);
-    try {
-      await cancelQueueEntry(accessToken, entry.id);
-      setEntry(null);
-      setPosition(null);
-    } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Couldn't cancel this entry. Please try again.");
-    } finally {
-      setIsCancelling(false);
-    }
-  }
 
   // Matching itself happens automatically (FIFO, as soon as someone else joins the level) —
   // this button just checks your status right now instead of waiting for the next auto-refresh.
@@ -143,7 +113,7 @@ export default function DashboardQueuePage() {
           ) : (
             <div className="mt-6 flex flex-col gap-3">
               <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
-                {position ? `You're #${position} in line` : "Waiting for a match"}
+                You&apos;re in line to be matched
               </div>
               <Button
                 type="button"
@@ -154,14 +124,6 @@ export default function DashboardQueuePage() {
                 {isChecking ? "Checking…" : "Get matched to be paid"}
               </Button>
               {checkMessage && <p className="text-sm text-muted">{checkMessage}</p>}
-              <button
-                type="button"
-                onClick={() => void handleCancel()}
-                disabled={isCancelling}
-                className="self-start text-sm font-medium text-muted underline underline-offset-4 hover:text-foreground disabled:opacity-50"
-              >
-                {isCancelling ? "Cancelling…" : "Cancel"}
-              </button>
             </div>
           )}
 

@@ -117,23 +117,14 @@ export default function DashboardLevelsPage() {
           </span>
 
           {needsPayment ? (
-            <div className="mt-6 flex flex-col gap-4">
+            <div className="mt-6">
               <TransactionPanel
                 transactionId={activeEntry.transactionId!}
                 onEntryStatusChange={() => void loadActiveEntry()}
               />
-              <Button
-                type="button"
-                variant="outline"
-                isLoading={isCancelling}
-                onClick={() => void handleCancel()}
-                className="self-start"
-              >
-                {isCancelling ? "Cancelling…" : "Cancel and join another level"}
-              </Button>
             </div>
           ) : (
-            <div className="mt-6 flex flex-col gap-2">
+            <div className="mt-6 flex flex-col gap-3">
               <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
                 Nothing to pay right now for this level.
               </div>
@@ -143,6 +134,17 @@ export default function DashboardLevelsPage() {
               >
                 Check Get Help →
               </Link>
+              {activeEntry.status === "WAITING_FOR_PAYOUT" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  isLoading={isCancelling}
+                  onClick={() => void handleCancel()}
+                  className="self-start"
+                >
+                  {isCancelling ? "Cancelling…" : "Cancel and join another level"}
+                </Button>
+              )}
             </div>
           )}
 

@@ -164,6 +164,10 @@ model User {
   referrals          User[]     @relation("Referrals")
   role               UserRole   @default(USER)
   status             UserStatus @default(ACTIVE)
+  // Marks internal/QA accounts (e.g. "simon nuel") used to click through the live site.
+  // The FIFO matching engine (QueueService.joinQueue) only ever pairs a test account with
+  // another test account, never with a real member — see the isTestAccount check there.
+  isTestAccount      Boolean    @default(false)
   payoutBankDetails  Json?
   deviceFingerprints Json?
   createdAt          DateTime   @default(now())

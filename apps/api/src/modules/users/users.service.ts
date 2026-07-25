@@ -45,6 +45,7 @@ export function toPublicUser(user: User): PublicUser {
     referredByUserId: user.referredByUserId,
     role: user.role,
     status: user.status,
+    isTestAccount: user.isTestAccount,
     payoutBankDetails: user.payoutBankDetails,
     mfaEnabled: user.mfaEnabled,
     createdAt: user.createdAt,

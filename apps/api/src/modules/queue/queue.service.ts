@@ -83,7 +83,13 @@ export class QueueService {
   async joinQueue(userId: string, levelId: string): Promise<JoinQueueResult> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const level = await tx.level.findUnique({ where: { id: levelId } });
+        const [level, joiningUser] = await Promise.all([
+          tx.level.findUnique({ where: { id: levelId } }),
+          tx.user.findUniqueOrThrow({
+            where: { id: userId },
+            select: { isTestAccount: true },
+          }),
+        ]);
         if (!level || !level.isActive) {
           throw new NotFoundException('Level not found');
         }
@@ -106,13 +112,18 @@ export class QueueService {
 
         // Lock the oldest waiting entry so two concurrent joins can never match the same
         // payee — SKIP LOCKED lets a second concurrent joiner fall through to the next oldest
-        // entry (or "no match") instead of blocking on this one.
+        // entry (or "no match") instead of blocking on this one. Test accounts (internal/QA
+        // click-through accounts) only ever match other test accounts — never a real member,
+        // in either direction — enforced by requiring the candidate's isTestAccount to equal
+        // the joining user's.
         const locked = await tx.$queryRaw<
           { id: string; userId: string }[]
         >(Prisma.sql`
-          SELECT "id", "userId" FROM "QueueEntry"
-          WHERE "levelId" = ${levelId} AND "status" = 'WAITING_FOR_PAYOUT' AND "userId" != ${userId}
-          ORDER BY "queueSequence" ASC
+          SELECT qe."id", qe."userId" FROM "QueueEntry" qe
+          JOIN "User" u ON u."id" = qe."userId"
+          WHERE qe."levelId" = ${levelId} AND qe."status" = 'WAITING_FOR_PAYOUT' AND qe."userId" != ${userId}
+            AND u."isTestAccount" = ${joiningUser.isTestAccount}
+          ORDER BY qe."queueSequence" ASC
           LIMIT 1
           FOR UPDATE SKIP LOCKED
         `);
@@ -353,16 +364,27 @@ export class QueueService {
   }
 
   async getQueueStats(userId: string, levelId: string): Promise<QueueStats> {
-    const level = await this.prisma.level.findUnique({
-      where: { id: levelId },
-    });
+    const [level, requestingUser] = await Promise.all([
+      this.prisma.level.findUnique({ where: { id: levelId } }),
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { isTestAccount: true },
+      }),
+    ]);
     if (!level || !level.isActive) {
       throw new NotFoundException('Level not found');
     }
 
+    // Test accounts and real members are separate matching pools (see joinQueue) — counted
+    // separately here too, so a real member's "position in line" isn't skewed by test accounts
+    // they'll never actually be matched with.
     const [waitingCount, yourEntry] = await Promise.all([
       this.prisma.queueEntry.count({
-        where: { levelId, status: 'WAITING_FOR_PAYOUT' },
+        where: {
+          levelId,
+          status: 'WAITING_FOR_PAYOUT',
+          user: { isTestAccount: requestingUser.isTestAccount },
+        },
       }),
       this.prisma.queueEntry.findFirst({
         where: { userId, levelId, status: { in: ACTIVE_QUEUE_ENTRY_STATUSES } },
@@ -377,6 +399,7 @@ export class QueueService {
             levelId,
             status: 'WAITING_FOR_PAYOUT',
             queueSequence: { lt: yourEntry.queueSequence },
+            user: { isTestAccount: requestingUser.isTestAccount },
           },
         })) + 1;
     }
