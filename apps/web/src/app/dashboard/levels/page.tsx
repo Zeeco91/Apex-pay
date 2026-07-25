@@ -7,7 +7,6 @@ import { getLevels } from "@/lib/api/levels";
 import { cancelQueueEntry, joinQueue, listMyQueueEntries } from "@/lib/api/queue";
 import { ApiError } from "@/lib/api/client";
 import { formatNaira } from "@/lib/constants";
-import { describeQueueEntryStatus } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
 import { TransactionPanel } from "@/components/dashboard/TransactionPanel";
 import type { PublicLevel, QueueEntryStatus, QueueEntrySummary } from "@/types/api";
@@ -21,17 +20,19 @@ const ACTIVE_STATUSES: QueueEntryStatus[] = [
 export default function DashboardLevelsPage() {
   const { accessToken } = useAuth();
   const [levels, setLevels] = useState<PublicLevel[] | null>(null);
-  const [entriesByLevel, setEntriesByLevel] = useState<Record<string, QueueEntrySummary>>({});
+  // Members can only be in one level's payout queue at a time, so there's at most one active
+  // entry, regardless of which level it's in — while it exists, every other level is hidden.
+  const [activeEntry, setActiveEntry] = useState<QueueEntrySummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [joiningLevelId, setJoiningLevelId] = useState<string | null>(null);
-  const [cancellingLevelId, setCancellingLevelId] = useState<string | null>(null);
-  const [joinErrorsByLevel, setJoinErrorsByLevel] = useState<Record<string, string>>({});
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const loadEntries = useCallback(async () => {
+  const loadActiveEntry = useCallback(async () => {
     if (!accessToken) return;
     try {
-      const entriesData = await listMyQueueEntries(accessToken);
-      setEntriesByLevel(indexActiveEntriesByLevel(entriesData));
+      const entries = await listMyQueueEntries(accessToken);
+      setActiveEntry(entries.find((entry) => ACTIVE_STATUSES.includes(entry.status)) ?? null);
     } catch (err) {
       setLoadError(err instanceof ApiError ? err.message : "Couldn't load your levels. Please try again.");
     }
@@ -45,7 +46,7 @@ export default function DashboardLevelsPage() {
       .then(([levelsData, entriesData]) => {
         if (cancelled) return;
         setLevels(levelsData);
-        setEntriesByLevel(indexActiveEntriesByLevel(entriesData));
+        setActiveEntry(entriesData.find((entry) => ACTIVE_STATUSES.includes(entry.status)) ?? null);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -61,42 +62,34 @@ export default function DashboardLevelsPage() {
   async function handleJoin(levelId: string) {
     if (!accessToken) return;
     setJoiningLevelId(levelId);
-    setJoinErrorsByLevel((prev) => ({ ...prev, [levelId]: "" }));
+    setActionError(null);
 
     try {
       const result = await joinQueue(accessToken, levelId);
-      setEntriesByLevel((prev) => ({ ...prev, [levelId]: result.entry }));
+      setActiveEntry(result.entry);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Couldn't join this level. Please try again.";
-      setJoinErrorsByLevel((prev) => ({ ...prev, [levelId]: message }));
+      setActionError(err instanceof ApiError ? err.message : "Couldn't join this level. Please try again.");
     } finally {
       setJoiningLevelId(null);
     }
   }
 
-  async function handleCancel(levelId: string, entryId: string) {
-    if (!accessToken) return;
-    setCancellingLevelId(levelId);
-    setJoinErrorsByLevel((prev) => ({ ...prev, [levelId]: "" }));
+  async function handleCancel() {
+    if (!accessToken || !activeEntry) return;
+    setIsCancelling(true);
+    setActionError(null);
 
     try {
-      await cancelQueueEntry(accessToken, entryId);
-      setEntriesByLevel((prev) => {
-        const next = { ...prev };
-        delete next[levelId];
-        return next;
-      });
+      await cancelQueueEntry(accessToken, activeEntry.id);
+      setActiveEntry(null);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Couldn't cancel. Please try again.";
-      setJoinErrorsByLevel((prev) => ({ ...prev, [levelId]: message }));
+      setActionError(err instanceof ApiError ? err.message : "Couldn't cancel. Please try again.");
     } finally {
-      setCancellingLevelId(null);
+      setIsCancelling(false);
     }
   }
 
-  // Members can only be in one level's payout queue at a time, so at most one entry exists
-  // across the whole map — find it once, regardless of which level it's in.
-  const activeEntryElsewhere = Object.values(entriesByLevel)[0];
+  const needsPayment = activeEntry?.status === "PENDING_JOIN_PAYMENT" && Boolean(activeEntry.transactionId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,97 +109,84 @@ export default function DashboardLevelsPage() {
         </div>
       ) : levels === null ? (
         <LevelsSkeleton />
+      ) : activeEntry ? (
+        <div className="max-w-xl rounded-2xl border border-border bg-background p-6 shadow-sm">
+          <span className="text-sm font-semibold uppercase tracking-wide text-muted">{activeEntry.levelName}</span>
+          <span className="mt-2 block text-3xl font-bold text-foreground">
+            {formatNaira(activeEntry.contributionAmount)}
+          </span>
+
+          {needsPayment ? (
+            <div className="mt-6 flex flex-col gap-4">
+              <TransactionPanel
+                transactionId={activeEntry.transactionId!}
+                onEntryStatusChange={() => void loadActiveEntry()}
+              />
+              <button
+                type="button"
+                onClick={() => void handleCancel()}
+                disabled={isCancelling}
+                className="self-start text-sm font-medium text-muted underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+              >
+                {isCancelling ? "Cancelling…" : "Cancel"}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6 flex flex-col gap-2">
+              <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
+                Nothing to pay right now for this level.
+              </div>
+              <Link
+                href="/dashboard/queue"
+                className="text-center text-sm font-medium text-primary underline underline-offset-4"
+              >
+                Check Get Help →
+              </Link>
+            </div>
+          )}
+
+          {actionError && (
+            <p role="alert" className="mt-2 text-sm text-danger">
+              {actionError}
+            </p>
+          )}
+        </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {levels.map((level) => {
-            const activeEntry = entriesByLevel[level.id];
             const isJoining = joiningLevelId === level.id;
-            const isCancelling = cancellingLevelId === level.id;
-            const joinError = joinErrorsByLevel[level.id];
-            const needsPayment =
-              activeEntry?.status === "PENDING_JOIN_PAYMENT" && Boolean(activeEntry.transactionId);
-            const blockedByOtherLevel = !activeEntry && Boolean(activeEntryElsewhere);
 
             return (
               <div
                 key={level.id}
                 className="flex flex-col rounded-2xl border border-border bg-background p-6 shadow-sm"
               >
-                <span className="text-sm font-semibold uppercase tracking-wide text-muted">
-                  {level.name}
-                </span>
+                <span className="text-sm font-semibold uppercase tracking-wide text-muted">{level.name}</span>
                 <span className="mt-2 text-3xl font-bold text-foreground">
                   {formatNaira(level.contributionAmount)}
                 </span>
 
-                {!activeEntry ? (
-                  blockedByOtherLevel ? (
-                    <div className="mt-6 rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm text-muted">
-                      You&apos;re already in {activeEntryElsewhere.levelName} — finish or cancel it to join this level.
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mt-6 w-full"
-                      isLoading={isJoining}
-                      onClick={() => void handleJoin(level.id)}
-                    >
-                      {isJoining ? "Joining…" : "Join"}
-                    </Button>
-                  )
-                ) : needsPayment ? (
-                  <div className="mt-4 flex flex-col gap-2">
-                    <TransactionPanel
-                      transactionId={activeEntry.transactionId!}
-                      onEntryStatusChange={() => void loadEntries()}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleCancel(level.id, activeEntry.id)}
-                      disabled={isCancelling}
-                      className="self-start text-sm font-medium text-muted underline underline-offset-4 hover:text-foreground disabled:opacity-50"
-                    >
-                      {isCancelling ? "Cancelling…" : "Cancel"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-6 flex flex-col gap-2">
-                    <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
-                      {describeQueueEntryStatus(activeEntry.status)}
-                    </div>
-                    <Link
-                      href="/dashboard/queue"
-                      className="text-center text-sm font-medium text-primary underline underline-offset-4"
-                    >
-                      Check Get Help →
-                    </Link>
-                  </div>
-                )}
-                {joinError && (
-                  <p role="alert" className="mt-2 text-sm text-danger">
-                    {joinError}
-                  </p>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-6 w-full"
+                  isLoading={isJoining}
+                  onClick={() => void handleJoin(level.id)}
+                >
+                  {isJoining ? "Joining…" : "Join"}
+                </Button>
               </div>
             );
           })}
+          {actionError && (
+            <p role="alert" className="text-sm text-danger sm:col-span-2 lg:col-span-3">
+              {actionError}
+            </p>
+          )}
         </div>
       )}
     </div>
   );
-}
-
-function indexActiveEntriesByLevel(
-  entries: QueueEntrySummary[],
-): Record<string, QueueEntrySummary> {
-  const map: Record<string, QueueEntrySummary> = {};
-  for (const entry of entries) {
-    if (ACTIVE_STATUSES.includes(entry.status)) {
-      map[entry.levelId] = entry;
-    }
-  }
-  return map;
 }
 
 function LevelsSkeleton() {

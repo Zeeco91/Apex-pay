@@ -12,6 +12,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { formatNaira } from "@/lib/constants";
 import { describeTransactionStatus } from "@/lib/format";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { TransactionDetail, TransactionStatus } from "@/types/api";
 
@@ -22,6 +23,19 @@ const NON_DISPUTABLE_STATUSES: TransactionStatus[] = [
   "ADMIN_RESOLVED_REJECTED",
   "CANCELLED",
 ];
+
+const STATUS_TONE: Record<TransactionStatus, BadgeTone> = {
+  AWAITING_PAYER_PROOF: "neutral",
+  PROOF_SUBMITTED: "warning",
+  PRINCIPAL_RECEIVED: "info",
+  PENDING_DISBURSEMENT: "warning",
+  DISBURSED: "info",
+  CONFIRMED: "success",
+  DISPUTED: "danger",
+  ADMIN_RESOLVED_CONFIRMED: "success",
+  ADMIN_RESOLVED_REJECTED: "danger",
+  CANCELLED: "neutral",
+};
 
 interface TransactionPanelProps {
   transactionId: string;
@@ -119,42 +133,57 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
 
   if (loadError) {
     return (
-      <p role="alert" className="mt-3 text-sm text-danger">
+      <p role="alert" className="text-sm text-danger">
         {loadError}
       </p>
     );
   }
 
   if (!detail) {
-    return <div className="mt-3 h-10 animate-pulse rounded-lg bg-surface" aria-busy="true" />;
+    return <div className="h-40 animate-pulse rounded-2xl bg-surface" aria-busy="true" />;
   }
 
   const canDispute = !NON_DISPUTABLE_STATUSES.includes(detail.status);
 
   return (
-    <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
-      <span className="text-sm font-medium text-foreground">{describeTransactionStatus(detail.status)}</span>
+    <div className="flex flex-col gap-6">
+      <Badge tone={STATUS_TONE[detail.status]}>{describeTransactionStatus(detail.status)}</Badge>
 
-      <div className="rounded-lg bg-background p-3 text-sm">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-          {detail.role === "PAYER" ? "You're paying" : "You're being paid by"}
-        </p>
-        <p className="mt-1 font-medium text-foreground">{detail.counterpart.fullName}</p>
-        <p className="text-muted">{detail.counterpart.phone}</p>
-      </div>
+      <section>
+        <h3 className="text-sm font-semibold text-foreground">
+          {detail.role === "PAYER" ? "Who you'll pay" : "Who's paying you"}
+        </h3>
+        <div className="mt-2 rounded-xl border border-border bg-surface p-4 text-sm">
+          <p className="font-medium text-foreground">{detail.counterpart.fullName}</p>
+          <p className="mt-0.5 text-muted">{detail.counterpart.phone}</p>
+        </div>
+      </section>
 
-      {detail.role === "PAYER" &&
-        detail.status === "AWAITING_PAYER_PROOF" &&
-        (detail.payeeBankDetails ? (
-          <div className="flex flex-col gap-3">
-            <div className="rounded-lg bg-background p-3 text-sm text-foreground">
-              <p className="font-medium">Send {formatNaira(detail.principalAmount)} to:</p>
+      {detail.role === "PAYER" && detail.status === "AWAITING_PAYER_PROOF" && (
+        <section>
+          <h3 className="text-sm font-semibold text-foreground">Bank details</h3>
+          {detail.payeeBankDetails ? (
+            <div className="mt-2 rounded-xl border border-border bg-surface p-4 text-sm">
+              <p className="font-medium text-foreground">Send {formatNaira(detail.principalAmount)} to:</p>
               <p className="mt-1 text-muted">{detail.payeeBankDetails.bankName}</p>
               <p className="text-muted">
                 {detail.payeeBankDetails.accountNumber} — {detail.payeeBankDetails.accountName}
               </p>
             </div>
-            <div>
+          ) : (
+            <p className="mt-2 text-sm text-muted">
+              Waiting for {detail.counterpart.fullName} to add their bank details before you can pay.
+            </p>
+          )}
+        </section>
+      )}
+
+      {(detail.role === "PAYER" ? detail.status === "AWAITING_PAYER_PROOF" && detail.payeeBankDetails : true) && (
+        <section>
+          <h3 className="text-sm font-semibold text-foreground">Proof of payment</h3>
+
+          {detail.role === "PAYER" && detail.status === "AWAITING_PAYER_PROOF" && detail.payeeBankDetails && (
+            <div className="mt-2">
               <label htmlFor={`proof-${detail.id}`} className="text-sm font-medium text-foreground">
                 Upload proof of payment
               </label>
@@ -168,32 +197,31 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
                 className="mt-1 block w-full text-sm text-muted file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary-hover"
               />
             </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted">
-            Waiting for {detail.counterpart.fullName} to add their bank details before you can pay.
-          </p>
-        ))}
+          )}
 
-      {detail.hasProof && (
-        <button
-          type="button"
-          onClick={() => void handleViewProof()}
-          className="self-start text-sm font-medium text-primary underline underline-offset-4 hover:text-primary-hover"
-        >
-          View submitted proof
-        </button>
+          {detail.hasProof ? (
+            <button
+              type="button"
+              onClick={() => void handleViewProof()}
+              className="mt-2 text-sm font-medium text-primary underline underline-offset-4 hover:text-primary-hover"
+            >
+              View submitted proof
+            </button>
+          ) : (
+            detail.role === "PAYEE" && <p className="mt-2 text-sm text-muted">No proof uploaded yet.</p>
+          )}
+        </section>
       )}
 
       {detail.role === "PAYEE" && detail.status === "PROOF_SUBMITTED" && (
-        <div className="flex flex-col gap-2">
+        <section className="flex flex-col gap-2">
           <p className="text-sm text-muted">
             {detail.counterpart.fullName} has uploaded proof of payment. Confirm once you&apos;ve received it.
           </p>
           <Button type="button" isLoading={isSubmitting} onClick={() => void handleConfirm()} className="self-start">
             {isSubmitting ? "Confirming…" : "Confirm receipt"}
           </Button>
-        </div>
+        </section>
       )}
 
       {detail.status === "DISPUTED" && (
@@ -205,7 +233,7 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
 
       {(detail.status === "ADMIN_RESOLVED_CONFIRMED" || detail.status === "ADMIN_RESOLVED_REJECTED") &&
         detail.adminResolutionNotes && (
-          <div className="rounded-lg border border-border bg-background p-3 text-sm text-muted">
+          <div className="rounded-lg border border-border bg-surface p-3 text-sm text-muted">
             <p className="font-medium text-foreground">Resolution notes</p>
             <p className="mt-1">{detail.adminResolutionNotes}</p>
           </div>
@@ -234,7 +262,7 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
             maxLength={500}
             required
             rows={3}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           />
           <div className="flex items-center gap-4">
             <Button type="submit" variant="outline" isLoading={isSubmitting}>
