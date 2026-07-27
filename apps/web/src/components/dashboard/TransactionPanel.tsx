@@ -53,7 +53,18 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDisputeForm, setShowDisputeForm] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [isLoadingProof, setIsLoadingProof] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!proofUrl) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setProofUrl(null);
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [proofUrl]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -123,11 +134,14 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
   async function handleViewProof() {
     if (!accessToken) return;
     setActionError(null);
+    setIsLoadingProof(true);
     try {
       const url = await getProofUrl(accessToken, transactionId);
-      window.open(url, "_blank", "noopener,noreferrer");
+      setProofUrl(url);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Couldn't load the proof image.");
+    } finally {
+      setIsLoadingProof(false);
     }
   }
 
@@ -203,9 +217,10 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
             <button
               type="button"
               onClick={() => void handleViewProof()}
-              className="mt-2 text-sm font-medium text-primary underline underline-offset-4 hover:text-primary-hover"
+              disabled={isLoadingProof}
+              className="mt-2 text-sm font-medium text-primary underline underline-offset-4 hover:text-primary-hover disabled:opacity-50"
             >
-              View submitted proof
+              {isLoadingProof ? "Loading…" : "View submitted proof"}
             </button>
           ) : (
             detail.role === "PAYEE" && <p className="mt-2 text-sm text-muted">No proof uploaded yet.</p>
@@ -283,6 +298,32 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
         <p role="alert" className="text-sm text-danger">
           {actionError}
         </p>
+      )}
+
+      {proofUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Submitted proof of payment"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setProofUrl(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setProofUrl(null)}
+            aria-label="Close"
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-background/90 text-xl leading-none text-foreground shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            ✕
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element -- signed, short-lived API URL, not a static/optimizable asset */}
+          <img
+            src={proofUrl}
+            alt="Submitted proof of payment"
+            className="max-h-full max-w-full rounded-lg object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
+        </div>
       )}
     </div>
   );
