@@ -14,6 +14,7 @@ const ACTIVE_STATUSES: QueueEntryStatus[] = [
   "PENDING_JOIN_PAYMENT",
   "WAITING_FOR_PAYOUT",
   "MATCHED_AS_PAYEE",
+  "ADMIN_HOLD",
 ];
 
 export default function DashboardQueuePage() {
@@ -106,7 +107,7 @@ export default function DashboardQueuePage() {
             {formatNaira(entry.contributionAmount)}
           </span>
 
-          {entry.status === "MATCHED_AS_PAYEE" && entry.transactionId ? (
+          {(entry.status === "MATCHED_AS_PAYEE" || entry.status === "ADMIN_HOLD") && entry.transactionId ? (
             <div className="mt-6">
               <TransactionPanel transactionId={entry.transactionId} onEntryStatusChange={() => void loadEntry()} />
             </div>

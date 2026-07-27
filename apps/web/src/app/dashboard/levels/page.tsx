@@ -15,6 +15,7 @@ const ACTIVE_STATUSES: QueueEntryStatus[] = [
   "PENDING_JOIN_PAYMENT",
   "WAITING_FOR_PAYOUT",
   "MATCHED_AS_PAYEE",
+  "ADMIN_HOLD",
 ];
 
 export default function DashboardLevelsPage() {
@@ -89,7 +90,12 @@ export default function DashboardLevelsPage() {
     }
   }
 
-  const needsPayment = activeEntry?.status === "PENDING_JOIN_PAYMENT" && Boolean(activeEntry.transactionId);
+  // A dispute (raised by either party) puts the entry on ADMIN_HOLD — the transaction itself
+  // still needs to be visible (its own status shows "under review"), it's just no longer a
+  // plain "waiting to pay" state.
+  const showTransactionPanel =
+    (activeEntry?.status === "PENDING_JOIN_PAYMENT" || activeEntry?.status === "ADMIN_HOLD") &&
+    Boolean(activeEntry.transactionId);
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,7 +122,7 @@ export default function DashboardLevelsPage() {
             {formatNaira(activeEntry.contributionAmount)}
           </span>
 
-          {needsPayment ? (
+          {showTransactionPanel ? (
             <div className="mt-6">
               <TransactionPanel
                 transactionId={activeEntry.transactionId!}

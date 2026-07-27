@@ -473,6 +473,14 @@ export class QueueService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Lock both rows — in a fixed, sorted order so two concurrent manual matches over
+      // overlapping entries can't deadlock each other — before reading them. This is what
+      // stops a concurrent automatic FIFO match (joinQueue's SELECT ... FOR UPDATE SKIP
+      // LOCKED) from grabbing either entry out from under this one: SKIP LOCKED just skips
+      // past a row already locked here rather than racing it.
+      const [firstId, secondId] = [payerEntryId, payeeEntryId].sort();
+      await tx.$executeRaw`SELECT "id" FROM "QueueEntry" WHERE "id" IN (${firstId}, ${secondId}) FOR UPDATE`;
+
       const [payerEntry, payeeEntry] = await Promise.all([
         tx.queueEntry.findUnique({
           where: { id: payerEntryId },
