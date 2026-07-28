@@ -116,6 +116,11 @@ describe('Critical flows (e2e)', () => {
         phoneVerifiedAt: new Date(),
         role: 'ADMIN',
         status: 'ACTIVE',
+        // Every e2e fixture is flagged so it can never be FIFO-matched with a real member —
+        // see QueueService.joinQueue's isTestAccount partition. Without this, leftover
+        // fixtures from repeated test runs pollute the real matching pool indefinitely (no
+        // dedicated test database exists yet to isolate them structurally — LAUNCH_CHECKLIST).
+        isTestAccount: true,
       },
     });
     return { phone, pin };
@@ -135,6 +140,8 @@ describe('Critical flows (e2e)', () => {
         referralCode: uniqueReferralCode(label),
         phoneVerifiedAt: new Date(),
         status: 'ACTIVE',
+        // See createTestAdminWithoutMfa above — same reasoning.
+        isTestAccount: true,
         payoutBankDetails: {
           bankName: 'Test Bank',
           accountNumber: `00${phoneCounter}00000${phoneCounter}`,
@@ -197,6 +204,14 @@ describe('Critical flows (e2e)', () => {
       expect(res.body.data.user.status).toBe('ACTIVE');
       expect(res.body.data.user.mfaEnabled).toBe(false);
       accessToken = res.body.data.accessToken;
+
+      // The public register endpoint deliberately has no way to self-report as a test
+      // account (that would be a real security hole) — flag it directly here instead, same
+      // reasoning as createApprovedMember above.
+      await prisma.user.update({
+        where: { phone },
+        data: { isTestAccount: true },
+      });
     });
 
     it('accepts the new PIN on a fresh login', async () => {
