@@ -585,6 +585,107 @@ export class QueueService {
     }, EXTENDED_TX_OPTIONS);
   }
 
+  /**
+   * Admin override to void a live match (or pull an unmatched entry) so both parties are free
+   * to be manually re-matched right away — unlike the member-facing cancelEntry, this works
+   * regardless of whose entry it is and even after proof has been submitted. Mirrors
+   * resolveDispute's REJECTED branch: the transaction is voided and both sides return to
+   * WAITING_FOR_PAYOUT rather than being removed from the queue, so admin can immediately pair
+   * them with someone else from the same Queues screen.
+   */
+  async adminCancelEntry(
+    adminId: string,
+    entryId: string,
+    reason: string,
+  ): Promise<QueueEntrySummary> {
+    return this.prisma.$transaction(async (tx) => {
+      const entry = await tx.queueEntry.findUnique({
+        where: { id: entryId },
+        include: { level: true },
+      });
+      if (!entry) throw new NotFoundException('Queue entry not found');
+
+      if (entry.status === 'WAITING_FOR_PAYOUT') {
+        const cancelled = await tx.queueEntry.update({
+          where: { id: entry.id },
+          data: { status: 'CANCELLED', cancelledAt: new Date() },
+        });
+        await this.auditLog.record(
+          {
+            adminUserId: adminId,
+            actionType: 'QUEUE_MATCH_CANCELLED',
+            targetEntityType: 'QueueEntry',
+            targetEntityId: entry.id,
+            reason,
+            beforeState: { status: entry.status },
+            afterState: { status: cancelled.status },
+          },
+          tx,
+        );
+        return toSummary(cancelled, entry.level, null, null);
+      }
+
+      if (
+        entry.status !== 'PENDING_JOIN_PAYMENT' &&
+        entry.status !== 'MATCHED_AS_PAYEE'
+      ) {
+        throw new ConflictException(
+          `Can't cancel — this entry is ${describeStatusForAdmin(entry.status)}.`,
+        );
+      }
+
+      const transactionId =
+        entry.status === 'PENDING_JOIN_PAYMENT'
+          ? entry.outgoingTransactionId
+          : entry.incomingTransactionId;
+      const transaction = transactionId
+        ? await tx.transaction.findUnique({ where: { id: transactionId } })
+        : null;
+      if (!transaction) {
+        throw new ConflictException(
+          'No active transaction found for this entry.',
+        );
+      }
+
+      await tx.transaction.update({
+        where: { id: transaction.id },
+        data: { status: 'CANCELLED' },
+      });
+      await tx.queueEntry.updateMany({
+        where: {
+          id: {
+            in: [transaction.payerQueueEntryId, transaction.payeeQueueEntryId],
+          },
+        },
+        data: { status: 'WAITING_FOR_PAYOUT' },
+      });
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'QUEUE_MATCH_CANCELLED',
+          targetEntityType: 'Transaction',
+          targetEntityId: transaction.id,
+          reason,
+          beforeState: {
+            status: entry.status,
+            transactionStatus: transaction.status,
+          },
+          afterState: {
+            status: 'WAITING_FOR_PAYOUT',
+            transactionStatus: 'CANCELLED',
+          },
+        },
+        tx,
+      );
+
+      const updatedEntry = await tx.queueEntry.findUniqueOrThrow({
+        where: { id: entry.id },
+      });
+      return toSummary(updatedEntry, entry.level, null, null);
+    }, EXTENDED_TX_OPTIONS);
+  }
+
   async holdEntry(
     adminId: string,
     entryId: string,

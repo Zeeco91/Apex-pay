@@ -24,6 +24,18 @@ export async function manualMatch(
   return res.data;
 }
 
+export async function adminCancelEntry(
+  accessToken: string,
+  entryId: string,
+  reason: string,
+): Promise<AdminQueueEntryView> {
+  const res = await apiFetch<{ success: true; data: AdminQueueEntryView }>(
+    `/admin/queue-entries/${entryId}/cancel`,
+    { method: "POST", accessToken, body: { reason } },
+  );
+  return res.data;
+}
+
 export async function holdQueueEntry(
   accessToken: string,
   entryId: string,

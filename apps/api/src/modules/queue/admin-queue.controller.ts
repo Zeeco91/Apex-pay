@@ -10,6 +10,7 @@ import { QueueService } from './queue.service';
 import { ManualMatchDto } from './dto/manual-match.dto';
 import { HoldEntryDto } from './dto/hold-entry.dto';
 import { ReleaseEntryDto } from './dto/release-entry.dto';
+import { AdminCancelEntryDto } from './dto/admin-cancel-entry.dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,6 +35,20 @@ export class AdminQueueController {
       levelId,
       dto.payerEntryId,
       dto.payeeEntryId,
+      dto.reason,
+    );
+    return { success: true, data };
+  }
+
+  @Post('admin/queue-entries/:id/cancel')
+  async adminCancel(
+    @CurrentUser() admin: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AdminCancelEntryDto,
+  ) {
+    const data = await this.queueService.adminCancelEntry(
+      admin.id,
+      id,
       dto.reason,
     );
     return { success: true, data };

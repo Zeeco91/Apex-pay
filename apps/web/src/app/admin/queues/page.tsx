@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api/client";
 import { getLevels } from "@/lib/api/levels";
-import { listQueueForLevel, manualMatch, holdQueueEntry, releaseQueueEntry } from "@/lib/api/admin/queue";
+import {
+  listQueueForLevel,
+  manualMatch,
+  adminCancelEntry,
+  holdQueueEntry,
+  releaseQueueEntry,
+} from "@/lib/api/admin/queue";
 import { formatEnumLabel } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -89,6 +95,14 @@ export default function AdminQueuesPage() {
     if (!accessToken) return;
     const updated = await releaseQueueEntry(accessToken, entryId, reason || undefined);
     setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, status: updated.status } : e)));
+  }
+
+  async function handleAdminCancel(entryId: string, reason: string) {
+    if (!accessToken) return;
+    await adminCancelEntry(accessToken, entryId, reason);
+    // A cancelled match can change the status of both matched parties at once,
+    // so refetch the whole queue instead of patching a single row locally.
+    await refreshEntries();
   }
 
   async function handleManualMatch(reason: string) {
@@ -232,12 +246,21 @@ export default function AdminQueuesPage() {
                         onConfirm={(reason) => handleRelease(entry.id, reason)}
                       />
                     ) : HOLDABLE_STATUSES.includes(entry.status) ? (
-                      <ReasonActionButton
-                        label="Hold"
-                        reasonLabel="Hold reason"
-                        confirmLabel="Hold"
-                        onConfirm={(reason) => handleHold(entry.id, reason)}
-                      />
+                      <div className="flex flex-wrap gap-2">
+                        <ReasonActionButton
+                          label="Hold"
+                          reasonLabel="Hold reason"
+                          confirmLabel="Hold"
+                          onConfirm={(reason) => handleHold(entry.id, reason)}
+                        />
+                        <ReasonActionButton
+                          label="Cancel match"
+                          variant="outline"
+                          reasonLabel="Reason for cancelling"
+                          confirmLabel="Cancel match"
+                          onConfirm={(reason) => handleAdminCancel(entry.id, reason)}
+                        />
+                      </div>
                     ) : (
                       <span className="text-xs text-muted">—</span>
                     )}
