@@ -75,6 +75,8 @@ export interface QueueEntrySummary {
   cancelledAt: string | null;
   transactionId: string | null;
   transactionStatus: TransactionStatus | null;
+  payersRequired: number;
+  payersConfirmedCount: number;
 }
 
 export interface JoinQueueResult {
@@ -175,6 +177,8 @@ export interface AdminQueueEntryView {
   cancelledAt: string | null;
   transactionId: string | null;
   transactionStatus: TransactionStatus | null;
+  payersRequired: number;
+  payersConfirmedCount: number;
 }
 
 export interface AdminAggregateParty {

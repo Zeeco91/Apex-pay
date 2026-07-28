@@ -106,6 +106,12 @@ export default function DashboardQueuePage() {
           <span className="mt-2 block text-3xl font-bold text-foreground">
             {formatNaira(entry.contributionAmount)}
           </span>
+          {entry.payersRequired > 1 && (
+            <p className="mt-1 text-xs font-medium text-muted">
+              Payout {Math.min(entry.payersConfirmedCount + 1, entry.payersRequired)} of {entry.payersRequired} for
+              this round
+            </p>
+          )}
 
           {(entry.status === "MATCHED_AS_PAYEE" || entry.status === "ADMIN_HOLD") && entry.transactionId ? (
             <div className="mt-6">
@@ -114,7 +120,9 @@ export default function DashboardQueuePage() {
           ) : (
             <div className="mt-6 flex flex-col gap-3">
               <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
-                You&apos;re in line to be matched
+                {entry.payersConfirmedCount > 0
+                  ? `You've received ${entry.payersConfirmedCount} of ${entry.payersRequired} payments — you're in line for your next match.`
+                  : "You're in line to be matched"}
               </div>
               <Button
                 type="button"

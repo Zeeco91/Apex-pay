@@ -34,6 +34,8 @@ export interface QueueEntrySummary {
   cancelledAt: Date | null;
   transactionId: string | null;
   transactionStatus: TransactionStatus | null;
+  payersRequired: number;
+  payersConfirmedCount: number;
 }
 
 export interface JoinQueueResult {
@@ -67,6 +69,8 @@ export interface AdminQueueEntryView {
   cancelledAt: Date | null;
   transactionId: string | null;
   transactionStatus: TransactionStatus | null;
+  payersRequired: number;
+  payersConfirmedCount: number;
 }
 
 const MANUAL_MATCH_ELIGIBLE_STATUSES: QueueEntryStatus[] = [
@@ -417,6 +421,8 @@ export class QueueService {
         waitingCount,
         yourEntry?.status ?? null,
         position,
+        yourEntry?.payersConfirmedCount ?? 0,
+        yourEntry?.payersRequired ?? 2,
       ),
     };
   }
@@ -449,6 +455,8 @@ export class QueueService {
         cancelledAt: entry.cancelledAt,
         transactionId: latest?.id ?? null,
         transactionStatus: latest?.status ?? null,
+        payersRequired: entry.payersRequired,
+        payersConfirmedCount: entry.payersConfirmedCount,
       };
     });
   }
@@ -787,6 +795,8 @@ function toSummary(
     joinedAt: Date;
     completedAt: Date | null;
     cancelledAt: Date | null;
+    payersRequired: number;
+    payersConfirmedCount: number;
   },
   level: Pick<Level, 'name' | 'contributionAmount'>,
   transactionId: string | null,
@@ -804,6 +814,8 @@ function toSummary(
     cancelledAt: entry.cancelledAt,
     transactionId,
     transactionStatus,
+    payersRequired: entry.payersRequired,
+    payersConfirmedCount: entry.payersConfirmedCount,
   };
 }
 
@@ -830,17 +842,22 @@ function buildQueueStatsMessage(
   waitingCount: number,
   entryStatus: QueueEntryStatus | null,
   position: number | null,
+  payersConfirmedCount: number,
+  payersRequired: number,
 ): string {
   const memberWord = waitingCount === 1 ? 'member' : 'members';
 
   if (entryStatus === 'WAITING_FOR_PAYOUT' && position !== null) {
+    if (payersConfirmedCount > 0) {
+      return `You've received ${payersConfirmedCount} of ${payersRequired} payments for this payout. You're #${position} in line for your next match. ${waitingCount} ${memberWord} waiting in this level right now.`;
+    }
     return `You're #${position} in line. ${waitingCount} ${memberWord} waiting in this level right now.`;
   }
   if (entryStatus === 'PENDING_JOIN_PAYMENT') {
     return "You've been matched with a member ahead of you — complete your contribution to keep your place.";
   }
   if (entryStatus === 'MATCHED_AS_PAYEE') {
-    return "You're matched to receive a payout once the incoming contribution is confirmed.";
+    return `You're matched to receive payment ${payersConfirmedCount + 1} of ${payersRequired} once it's confirmed.`;
   }
   if (waitingCount === 0) {
     return "No one is waiting yet in this level — you'd be the first in the queue.";

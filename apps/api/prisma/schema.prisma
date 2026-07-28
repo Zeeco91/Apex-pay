@@ -274,6 +274,13 @@ model QueueEntry {
   queueSequence Int              @default(autoincrement())
   status        QueueEntryStatus @default(WAITING_FOR_PAYOUT)
 
+  // Doubling payout rule: an entry only reaches COMPLETED once this many separate payers have
+  // each paid it in full (confirmed) — every member is re-matched as a payee this many times
+  // per join, cycling back to WAITING_FOR_PAYOUT between matches, same as if they'd joined
+  // fresh. Stored per-entry (not a global constant) so it's auditable and could vary later.
+  payersRequired       Int @default(2)
+  payersConfirmedCount Int @default(0)
+
   // Denormalized for fast lookup in either direction — kept in sync by QueueService inside the
   // same DB transaction that creates the Transaction. Not FK-enforced: the authoritative
   // relation lives on Transaction.payerQueueEntryId / payeeQueueEntryId below.

@@ -193,6 +193,7 @@ export default function AdminQueuesPage() {
                 <th className="px-4 py-3 font-semibold">#</th>
                 <th className="px-4 py-3 font-semibold">Member</th>
                 <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Payments</th>
                 <th className="px-4 py-3 font-semibold">Joined</th>
                 <th className="px-4 py-3 font-semibold">Manual match</th>
                 <th className="px-4 py-3 font-semibold">Actions</th>
@@ -208,6 +209,9 @@ export default function AdminQueuesPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge tone={STATUS_TONE[entry.status]}>{formatEnumLabel(entry.status)}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-muted">
+                    {entry.payersConfirmedCount} / {entry.payersRequired}
                   </td>
                   <td className="px-4 py-3 text-muted">{new Date(entry.joinedAt).toLocaleDateString()}</td>
                   <td className="px-4 py-3">

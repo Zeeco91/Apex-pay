@@ -205,10 +205,7 @@ export class TransactionsService {
         include: PARTIES_INCLUDE,
       });
 
-      await tx.queueEntry.update({
-        where: { id: transaction.payeeQueueEntryId },
-        data: { status: 'COMPLETED', completedAt: new Date() },
-      });
+      await this.recordConfirmedPayeePayout(tx, transaction.payeeQueueEntryId);
       // Their original queueSequence is untouched — they now wait for their own payout in the
       // same relative position they'd have if they'd joined fresh at that moment.
       await tx.queueEntry.update({
@@ -320,10 +317,10 @@ export class TransactionsService {
       if (params.resolution === 'CONFIRMED') {
         // Admin investigated and confirms the transaction proceeded legitimately — restore
         // queue entries to what a normal CONFIRMED completion would have produced.
-        await tx.queueEntry.update({
-          where: { id: transaction.payeeQueueEntryId },
-          data: { status: 'COMPLETED', completedAt: new Date() },
-        });
+        await this.recordConfirmedPayeePayout(
+          tx,
+          transaction.payeeQueueEntryId,
+        );
         await tx.queueEntry.update({
           where: { id: transaction.payerQueueEntryId },
           data: { status: 'WAITING_FOR_PAYOUT' },
@@ -381,6 +378,33 @@ export class TransactionsService {
   // ---------------------------------------------------------------------------------------
   // Internals
   // ---------------------------------------------------------------------------------------
+
+  /**
+   * Doubling payout rule: a payee's queue entry only reaches COMPLETED once payersRequired
+   * separate payers have each paid it in full. Called from both a normal confirmReceipt and
+   * an admin dispute resolution that sides with the payee — either way, this is "one more
+   * confirmed payment landed on this entry," so the same completion-or-keep-waiting decision
+   * applies. Below the threshold, the entry goes back to WAITING_FOR_PAYOUT (not removed from
+   * the queue) so it's immediately re-matchable — automatically via FIFO or manually by admin —
+   * with its next payer, same as any other entry waiting for a payout.
+   */
+  private async recordConfirmedPayeePayout(
+    tx: TxClient,
+    payeeQueueEntryId: string,
+  ): Promise<void> {
+    const payeeEntry = await tx.queueEntry.findUniqueOrThrow({
+      where: { id: payeeQueueEntryId },
+    });
+    const payersConfirmedCount = payeeEntry.payersConfirmedCount + 1;
+    const isFullyPaidOut = payersConfirmedCount >= payeeEntry.payersRequired;
+
+    await tx.queueEntry.update({
+      where: { id: payeeQueueEntryId },
+      data: isFullyPaidOut
+        ? { payersConfirmedCount, status: 'COMPLETED', completedAt: new Date() }
+        : { payersConfirmedCount, status: 'WAITING_FOR_PAYOUT' },
+    });
+  }
 
   private async loadAdminSummary(
     tx: TxClient,
