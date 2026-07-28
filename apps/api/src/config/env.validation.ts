@@ -55,10 +55,19 @@ const envSchema = z.object({
     .string()
     .min(32, 'FILE_ACCESS_HMAC_SECRET must be at least 32 characters'),
 
-  // Public URL this API is reachable at — used to build proof-of-payment file links
-  // (LocalDiskStorageProvider is dev-only and needs a real, browser-reachable address).
-  // Falls back to Railway's auto-injected RAILWAY_PUBLIC_DOMAIN, then localhost for local dev.
+  // Public URL this API is reachable at — used to build proof-of-payment file links when
+  // falling back to LocalDiskStorageProvider (dev-only; needs a real, browser-reachable
+  // address). Falls back to Railway's auto-injected RAILWAY_PUBLIC_DOMAIN, then localhost.
   PUBLIC_API_URL: z.string().url().optional(),
+
+  // Cloudflare R2 (S3-compatible) proof-of-payment storage. All four must be set together for
+  // FileStorageModule to use R2Storage Provider — otherwise it falls back to
+  // LocalDiskStorageProvider, which doesn't survive a redeploy (no persistent volume). See
+  // r2-storage.provider.ts.
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

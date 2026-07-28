@@ -10,5 +10,5 @@ export interface FileStorageProvider {
     extension: string;
     folder: string;
   }): Promise<SavedFile>;
-  getSignedUrl(key: string): string;
+  getSignedUrl(key: string): Promise<string>;
 }

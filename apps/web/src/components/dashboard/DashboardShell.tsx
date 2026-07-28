@@ -12,15 +12,18 @@ import {
   OverviewIcon,
   PayoutIcon,
   ReferralsIcon,
+  ShieldIcon,
   SupportIcon,
 } from "./NavIcons";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", Icon: OverviewIcon },
   { href: "/dashboard/referrals", label: "Referrals", Icon: ReferralsIcon },
   { href: "/dashboard/payout-details", label: "Bank Details", Icon: PayoutIcon },
   { href: "/dashboard/support", label: "Support", Icon: SupportIcon },
 ];
+
+const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN"];
 
 const STATUS_TONE: Record<string, BadgeTone> = {
   ACTIVE: "success",
@@ -52,6 +55,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     router.replace("/login");
   }
 
+  const navItems = ADMIN_ROLES.includes(user.role)
+    ? [...BASE_NAV_ITEMS, { href: "/admin", label: "Admin Panel", Icon: ShieldIcon }]
+    : BASE_NAV_ITEMS;
+
   const logoMark = (
     <Link href="/dashboard" className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-foreground">
       <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
@@ -68,7 +75,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       <aside className="hidden shrink-0 border-r border-border bg-background md:flex md:w-64 md:flex-col">
         <div className="px-6 py-6">{logoMark}</div>
         <nav aria-label="Dashboard" className="flex flex-1 flex-col gap-1 px-4">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
@@ -110,7 +117,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </button>
         </div>
         <nav aria-label="Dashboard" className="flex gap-2 overflow-x-auto px-6 pb-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Link

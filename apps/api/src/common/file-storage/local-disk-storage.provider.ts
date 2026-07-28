@@ -14,18 +14,20 @@ const SIGNED_URL_TTL_SECONDS = 5 * 60;
 export const UPLOADS_ROOT = join(process.cwd(), 'uploads');
 
 /**
- * Stand-in until a real provider (S3/R2, plan §1) is wired up. Stores files on local disk and
- * issues HMAC-signed, short-lived URLs served back through FilesController — nothing under
- * `uploads/` is ever served without a valid, unexpired token.
+ * Local-disk fallback, selected by FileStorageModule only when R2 credentials aren't
+ * configured (local dev). Stores files on local disk and issues HMAC-signed, short-lived URLs
+ * served back through FilesController — nothing under `uploads/` is ever served without a
+ * valid, unexpired token.
  *
- * NOT fully production-ready: getSignedUrl() below now resolves a real, browser-reachable base
- * URL (PUBLIC_API_URL, or Railway's auto-injected domain, or localhost for local dev — see
+ * NOT fit for production use: getSignedUrl() below resolves a real, browser-reachable base URL
+ * (PUBLIC_API_URL, or Railway's auto-injected domain, or localhost for local dev — see
  * publicBaseUrl()), but anything saved here is still lost on every redeploy (no persistent
- * volume). This previously threw on construction when NODE_ENV=production, but every provider
- * in this module (this one, SmsModule's ConsoleSmsProvider) gets eagerly instantiated at boot
- * regardless of whether file upload is ever used, so that guard crashed the whole app rather
- * than only the proof-of-payment upload paths that actually need a real provider. Removed
- * so registration/login (which don't touch file storage) can run.
+ * volume) — see R2StorageProvider for the real production provider. This previously threw on
+ * construction when NODE_ENV=production, but every provider in this module (this one,
+ * SmsModule's ConsoleSmsProvider) gets eagerly instantiated at boot regardless of whether file
+ * upload is ever used, so that guard crashed the whole app rather than only the
+ * proof-of-payment upload paths that actually need a real provider. Removed so
+ * registration/login (which don't touch file storage) can run.
  */
 @Injectable()
 export class LocalDiskStorageProvider implements FileStorageProvider {
@@ -49,7 +51,10 @@ export class LocalDiskStorageProvider implements FileStorageProvider {
     return { key };
   }
 
-  getSignedUrl(key: string): string {
+  // Matches the async FileStorageProvider interface (R2StorageProvider's presigner is
+  // genuinely async) even though this implementation has nothing to await.
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getSignedUrl(key: string): Promise<string> {
     const expires = Date.now() + SIGNED_URL_TTL_SECONDS * 1000;
     const token = this.sign(key, expires);
     return `${this.publicBaseUrl()}/api/v1/files/${key}?expires=${expires}&token=${token}`;

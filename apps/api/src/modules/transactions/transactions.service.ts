@@ -177,7 +177,7 @@ export class TransactionsService {
     if (!transaction.payerProofImageKey) {
       throw new NotFoundException('No proof has been uploaded yet');
     }
-    return this.fileStorage.getSignedUrl(transaction.payerProofImageKey);
+    return await this.fileStorage.getSignedUrl(transaction.payerProofImageKey);
   }
 
   async confirmReceipt(
