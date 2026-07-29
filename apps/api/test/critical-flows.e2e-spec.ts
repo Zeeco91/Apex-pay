@@ -7,6 +7,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { QueueService } from '../src/modules/queue/queue.service';
 import {
   SMS_PROVIDER,
   type SmsProvider,
@@ -69,6 +70,7 @@ function uniqueReferralCode(label: string): string {
 describe('Critical flows (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
+  let queueService: QueueService;
   let sms: CapturingSmsProvider;
 
   beforeAll(async () => {
@@ -92,6 +94,7 @@ describe('Critical flows (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    queueService = app.get(QueueService);
   });
 
   afterAll(async () => {
@@ -324,6 +327,276 @@ describe('Critical flows (e2e)', () => {
         .set('Authorization', `Bearer ${payeeToken}`)
         .expect(201);
       expect(confirmed.body.data.status).toBe('CONFIRMED');
+    });
+  });
+
+  describe('Payout doubling: a payee needs two confirmed payers before completing', () => {
+    let payee: { phone: string; pin: string; id: string };
+    let payer1: { phone: string; pin: string; id: string };
+    let payer2: { phone: string; pin: string; id: string };
+    let payeeToken: string;
+    let payer1Token: string;
+    let payer2Token: string;
+    let levelId: string;
+    let firstTransactionId: string;
+    let secondTransactionId: string;
+
+    beforeAll(async () => {
+      const levels = await request(app.getHttpServer())
+        .get('/api/v1/levels')
+        .expect(200);
+      levelId = levels.body.data[1].id;
+
+      // Same self-healing cleanup as the cycle above — see its comment.
+      await prisma.queueEntry.updateMany({
+        where: {
+          levelId,
+          status: 'WAITING_FOR_PAYOUT',
+          user: { fullName: { startsWith: 'E2E ' } },
+        },
+        data: { status: 'CANCELLED', cancelledAt: new Date() },
+      });
+
+      payee = await createApprovedMember('DoublingPayee');
+      payer1 = await createApprovedMember('DoublingPayer1');
+      payer2 = await createApprovedMember('DoublingPayer2');
+      payeeToken = await loginFor(payee.phone, payee.pin);
+      payer1Token = await loginFor(payer1.phone, payer1.pin);
+      payer2Token = await loginFor(payer2.phone, payer2.pin);
+    });
+
+    it('payee joins first and waits', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/levels/${levelId}/queue-entries`)
+        .set('Authorization', `Bearer ${payeeToken}`)
+        .expect(201);
+      expect(res.body.data.matched).toBe(false);
+    });
+
+    it('first payer joins and auto-matches with the payee', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/levels/${levelId}/queue-entries`)
+        .set('Authorization', `Bearer ${payer1Token}`)
+        .expect(201);
+      expect(res.body.data.matched).toBe(true);
+      firstTransactionId = res.body.data.entry.transactionId;
+      expect(firstTransactionId).toBeTruthy();
+    });
+
+    it("first payer pays and payee confirms — payee's entry returns to WAITING_FOR_PAYOUT, not COMPLETED", async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${firstTransactionId}/proof`)
+        .set('Authorization', `Bearer ${payer1Token}`)
+        .attach('file', MINIMAL_PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+
+      const confirmed = await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${firstTransactionId}/confirm`)
+        .set('Authorization', `Bearer ${payeeToken}`)
+        .expect(201);
+      expect(confirmed.body.data.status).toBe('CONFIRMED');
+
+      const entry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payee.id, levelId },
+      });
+      expect(entry.status).toBe('WAITING_FOR_PAYOUT');
+      expect(entry.payersConfirmedCount).toBe(1);
+      expect(entry.payersRequired).toBe(2);
+    });
+
+    it("second payer joins and auto-matches with the SAME payee entry's second round", async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/levels/${levelId}/queue-entries`)
+        .set('Authorization', `Bearer ${payer2Token}`)
+        .expect(201);
+      expect(res.body.data.matched).toBe(true);
+      secondTransactionId = res.body.data.entry.transactionId;
+      expect(secondTransactionId).toBeTruthy();
+
+      const entry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payee.id, levelId },
+      });
+      expect(entry.status).toBe('MATCHED_AS_PAYEE');
+    });
+
+    it('second payer pays and payee confirms — payee entry now COMPLETED at 2/2 payers', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${secondTransactionId}/proof`)
+        .set('Authorization', `Bearer ${payer2Token}`)
+        .attach('file', MINIMAL_PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+
+      const confirmed = await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${secondTransactionId}/confirm`)
+        .set('Authorization', `Bearer ${payeeToken}`)
+        .expect(201);
+      expect(confirmed.body.data.status).toBe('CONFIRMED');
+
+      const entry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payee.id, levelId },
+      });
+      expect(entry.status).toBe('COMPLETED');
+      expect(entry.payersConfirmedCount).toBe(2);
+    });
+  });
+
+  describe('Payout doubling via admin manual match (round 2, auto-match paused)', () => {
+    let payee: { phone: string; pin: string; id: string };
+    let payer1: { phone: string; pin: string; id: string };
+    let payer2: { phone: string; pin: string; id: string };
+    let payeeToken: string;
+    let payer1Token: string;
+    let payer2Token: string;
+    let levelId: string;
+    let adminId: string;
+
+    beforeAll(async () => {
+      const levels = await request(app.getHttpServer())
+        .get('/api/v1/levels')
+        .expect(200);
+      levelId = levels.body.data[1].id;
+
+      await prisma.queueEntry.updateMany({
+        where: {
+          levelId,
+          status: 'WAITING_FOR_PAYOUT',
+          user: { fullName: { startsWith: 'E2E ' } },
+        },
+        data: { status: 'CANCELLED', cancelledAt: new Date() },
+      });
+
+      payee = await createApprovedMember('ManualDoublingPayee');
+      payer1 = await createApprovedMember('ManualDoublingPayer1');
+      payer2 = await createApprovedMember('ManualDoublingPayer2');
+      payeeToken = await loginFor(payee.phone, payee.pin);
+      payer1Token = await loginFor(payer1.phone, payer1.pin);
+      payer2Token = await loginFor(payer2.phone, payer2.pin);
+
+      const admin = await prisma.user.create({
+        data: {
+          phone: uniquePhone(),
+          fullName: 'E2E Manual Match Admin',
+          pinHash: await argon2.hash('1234', { type: argon2.argon2id }),
+          referralCode: uniqueReferralCode('MMAdmin'),
+          phoneVerifiedAt: new Date(),
+          role: 'ADMIN',
+          status: 'ACTIVE',
+          isTestAccount: true,
+        },
+      });
+      adminId = admin.id;
+    });
+
+    afterAll(async () => {
+      // Leave auto-match on for every other suite/manual tester relying on default behavior.
+      await queueService.setAutoMatchEnabled(
+        adminId,
+        true,
+        'Re-enable after e2e test',
+      );
+    });
+
+    it('payee joins, first payer joins and auto-matches, pays, and is confirmed — payee back to 1/2', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/levels/${levelId}/queue-entries`)
+        .set('Authorization', `Bearer ${payeeToken}`)
+        .expect(201);
+
+      const joinRes = await request(app.getHttpServer())
+        .post(`/api/v1/levels/${levelId}/queue-entries`)
+        .set('Authorization', `Bearer ${payer1Token}`)
+        .expect(201);
+      const transactionId = joinRes.body.data.entry.transactionId;
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${transactionId}/proof`)
+        .set('Authorization', `Bearer ${payer1Token}`)
+        .attach('file', MINIMAL_PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${transactionId}/confirm`)
+        .set('Authorization', `Bearer ${payeeToken}`)
+        .expect(201);
+
+      const entry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payee.id, levelId },
+      });
+      expect(entry.status).toBe('WAITING_FOR_PAYOUT');
+      expect(entry.payersConfirmedCount).toBe(1);
+    });
+
+    it('admin pauses automatic matching, second payer joins WITHOUT auto-matching', async () => {
+      const enabled = await queueService.setAutoMatchEnabled(
+        adminId,
+        false,
+        'Testing manual match for round 2',
+      );
+      expect(enabled).toBe(false);
+
+      const joinRes = await request(app.getHttpServer())
+        .post(`/api/v1/levels/${levelId}/queue-entries`)
+        .set('Authorization', `Bearer ${payer2Token}`)
+        .expect(201);
+      expect(joinRes.body.data.matched).toBe(false);
+    });
+
+    it('admin manually matches the second payer with the payee — round 2 begins', async () => {
+      const payeeEntry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payee.id, levelId },
+      });
+      const payer2Entry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payer2.id, levelId },
+      });
+      expect(payeeEntry.status).toBe('WAITING_FOR_PAYOUT');
+      expect(payer2Entry.status).toBe('WAITING_FOR_PAYOUT');
+
+      const result = await queueService.manualMatch(
+        adminId,
+        levelId,
+        payer2Entry.id,
+        payeeEntry.id,
+        'E2E: manually pairing round-2 payer with payee',
+      );
+      expect(result.payeeEntry.status).toBe('MATCHED_AS_PAYEE');
+      expect(result.payerEntry.status).toBe('PENDING_JOIN_PAYMENT');
+    });
+
+    it('second payer pays and payee confirms — payee entry now COMPLETED at 2/2 payers', async () => {
+      const payeeEntry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payee.id, levelId },
+      });
+      const transactionId = payeeEntry.incomingTransactionId;
+      expect(transactionId).toBeTruthy();
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${transactionId}/proof`)
+        .set('Authorization', `Bearer ${payer2Token}`)
+        .attach('file', MINIMAL_PNG, {
+          filename: 'proof.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+
+      const confirmed = await request(app.getHttpServer())
+        .post(`/api/v1/transactions/${transactionId}/confirm`)
+        .set('Authorization', `Bearer ${payeeToken}`)
+        .expect(201);
+      expect(confirmed.body.data.status).toBe('CONFIRMED');
+
+      const entry = await prisma.queueEntry.findFirstOrThrow({
+        where: { userId: payee.id, levelId },
+      });
+      expect(entry.status).toBe('COMPLETED');
+      expect(entry.payersConfirmedCount).toBe(2);
     });
   });
 
