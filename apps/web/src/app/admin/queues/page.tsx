@@ -13,7 +13,6 @@ import {
   getAutoMatchStatus,
   setAutoMatchStatus,
 } from "@/lib/api/admin/queue";
-import { formatEnumLabel } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ReasonActionButton } from "@/components/admin/ReasonActionButton";
@@ -26,6 +25,16 @@ const STATUS_TONE: Record<QueueEntryStatus, BadgeTone> = {
   COMPLETED: "success",
   CANCELLED: "neutral",
   ADMIN_HOLD: "danger",
+};
+
+// Admin-facing phrasing for queue status, distinct from the member-facing copy in lib/format.ts.
+const ADMIN_STATUS_LABELS: Record<QueueEntryStatus, string> = {
+  PENDING_JOIN_PAYMENT: "Waiting to pay",
+  WAITING_FOR_PAYOUT: "Paid and waiting to be paid",
+  MATCHED_AS_PAYEE: "Matched as payee",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+  ADMIN_HOLD: "On hold",
 };
 
 const MANUAL_MATCH_ELIGIBLE: QueueEntryStatus[] = ["WAITING_FOR_PAYOUT"];
@@ -261,7 +270,7 @@ export default function AdminQueuesPage() {
                     <p className="text-xs text-muted">{entry.userPhone}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge tone={STATUS_TONE[entry.status]}>{formatEnumLabel(entry.status)}</Badge>
+                    <Badge tone={STATUS_TONE[entry.status]}>{ADMIN_STATUS_LABELS[entry.status]}</Badge>
                   </td>
                   <td className="px-4 py-3 text-muted">
                     {entry.payersConfirmedCount} / {entry.payersRequired}
