@@ -42,14 +42,14 @@ export const HOW_IT_WORKS_STEPS = [
       "Pick a contribution amount from ₦5,000 to ₦200,000 based on what works for you.",
   },
   {
-    title: "Join the queue and contribute",
+    title: "Click \"Provide Help\" to join the queue",
     description:
-      "You'll be matched with a member ahead of you in your level's queue. Send your contribution and upload proof of payment.",
+      "You'll be matched with a member to pay. Send your contribution and upload proof of payment so they can confirm it.",
   },
   {
-    title: "Get paid out in turn",
+    title: "Click \"Get Help\" to receive your payout",
     description:
-      "As new members join behind you, you move up the queue. When it's your turn, you receive your full contribution back.",
+      "You'll be matched with a minimum of two members who pay you in turn. Confirm each payment as you receive it.",
   },
 ] as const;
 
