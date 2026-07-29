@@ -11,12 +11,32 @@ import { ManualMatchDto } from './dto/manual-match.dto';
 import { HoldEntryDto } from './dto/hold-entry.dto';
 import { ReleaseEntryDto } from './dto/release-entry.dto';
 import { AdminCancelEntryDto } from './dto/admin-cancel-entry.dto';
+import { ToggleAutoMatchDto } from './dto/toggle-auto-match.dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'SUPER_ADMIN')
 export class AdminQueueController {
   constructor(private readonly queueService: QueueService) {}
+
+  @Get('admin/queues/auto-match')
+  async getAutoMatch() {
+    const enabled = await this.queueService.getAutoMatchEnabled();
+    return { success: true, data: { enabled } };
+  }
+
+  @Post('admin/queues/auto-match')
+  async setAutoMatch(
+    @CurrentUser() admin: AuthenticatedUser,
+    @Body() dto: ToggleAutoMatchDto,
+  ) {
+    const enabled = await this.queueService.setAutoMatchEnabled(
+      admin.id,
+      dto.enabled,
+      dto.reason,
+    );
+    return { success: true, data: { enabled } };
+  }
 
   @Get('admin/queues/:levelId')
   async listForLevel(@Param('levelId') levelId: string) {

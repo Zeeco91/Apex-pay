@@ -10,6 +10,8 @@ import {
   adminCancelEntry,
   holdQueueEntry,
   releaseQueueEntry,
+  getAutoMatchStatus,
+  setAutoMatchStatus,
 } from "@/lib/api/admin/queue";
 import { formatEnumLabel } from "@/lib/format";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
@@ -45,6 +47,10 @@ export default function AdminQueuesPage() {
   const [payeeId, setPayeeId] = useState<string | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
 
+  const [autoMatchEnabled, setAutoMatchEnabled] = useState<boolean | null>(null);
+  const [isTogglingAutoMatch, setIsTogglingAutoMatch] = useState(false);
+  const [autoMatchError, setAutoMatchError] = useState<string | null>(null);
+
   useEffect(() => {
     getLevels()
       .then((data) => {
@@ -53,6 +59,28 @@ export default function AdminQueuesPage() {
       })
       .catch(() => setError("Failed to load levels."));
   }, []);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    getAutoMatchStatus(accessToken)
+      .then((enabled) => setAutoMatchEnabled(enabled))
+      .catch((err) => setAutoMatchError(err instanceof ApiError ? err.message : "Failed to load auto-match status."));
+  }, [accessToken]);
+
+  async function handleToggleAutoMatch() {
+    if (!accessToken || autoMatchEnabled === null) return;
+    const next = !autoMatchEnabled;
+    setIsTogglingAutoMatch(true);
+    setAutoMatchError(null);
+    try {
+      const enabled = await setAutoMatchStatus(accessToken, next);
+      setAutoMatchEnabled(enabled);
+    } catch (err) {
+      setAutoMatchError(err instanceof ApiError ? err.message : "Failed to update auto-match status.");
+    } finally {
+      setIsTogglingAutoMatch(false);
+    }
+  }
 
   useEffect(() => {
     if (!accessToken || !levelId) return;
@@ -127,6 +155,30 @@ export default function AdminQueuesPage() {
           Select two members waiting for payout to force a match, or place an entry on hold.
         </p>
       </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Automatic matching</p>
+          <p className="mt-1 text-xs text-muted">
+            {autoMatchEnabled === null
+              ? "Loading…"
+              : autoMatchEnabled
+                ? "On — new joins are matched automatically across every level."
+                : "Off — new joins wait for you to match them manually. Manual matching still works as normal."}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant={autoMatchEnabled ? "outline" : "primary"}
+          isLoading={isTogglingAutoMatch}
+          disabled={autoMatchEnabled === null}
+          onClick={() => void handleToggleAutoMatch()}
+          className="self-start sm:self-auto"
+        >
+          {autoMatchEnabled ? "Turn off automatic matching" : "Turn on automatic matching"}
+        </Button>
+      </div>
+      {autoMatchError ? <p className="text-sm text-danger">{autoMatchError}</p> : null}
 
       <select
         aria-label="Select level"

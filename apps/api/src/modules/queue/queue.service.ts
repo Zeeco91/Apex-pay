@@ -87,16 +87,21 @@ export class QueueService {
   async joinQueue(userId: string, levelId: string): Promise<JoinQueueResult> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const [level, joiningUser] = await Promise.all([
+        const [level, joiningUser, platformSettings] = await Promise.all([
           tx.level.findUnique({ where: { id: levelId } }),
           tx.user.findUniqueOrThrow({
             where: { id: userId },
             select: { isTestAccount: true },
           }),
+          tx.platformSettings.findUnique({ where: { id: 1 } }),
         ]);
         if (!level || !level.isActive) {
           throw new NotFoundException('Level not found');
         }
+        // Admin can pause automatic FIFO matching platform-wide (see setAutoMatchEnabled) to do
+        // manual matches without new joins auto-matching out from under them — missing row
+        // defaults to enabled, so the feature works before the singleton row is ever written.
+        const autoMatchEnabled = platformSettings?.autoMatchEnabled ?? true;
 
         // Members can only be in one level's payout queue at a time — checked across ALL
         // levels, not just this one, so joining Gold while already waiting in Bronze is
@@ -119,18 +124,19 @@ export class QueueService {
         // entry (or "no match") instead of blocking on this one. Test accounts (internal/QA
         // click-through accounts) only ever match other test accounts — never a real member,
         // in either direction — enforced by requiring the candidate's isTestAccount to equal
-        // the joining user's.
-        const locked = await tx.$queryRaw<
-          { id: string; userId: string }[]
-        >(Prisma.sql`
-          SELECT qe."id", qe."userId" FROM "QueueEntry" qe
-          JOIN "User" u ON u."id" = qe."userId"
-          WHERE qe."levelId" = ${levelId} AND qe."status" = 'WAITING_FOR_PAYOUT' AND qe."userId" != ${userId}
-            AND u."isTestAccount" = ${joiningUser.isTestAccount}
-          ORDER BY qe."queueSequence" ASC
-          LIMIT 1
-          FOR UPDATE SKIP LOCKED
-        `);
+        // the joining user's. Skipped entirely while auto-match is paused — the new entry just
+        // joins WAITING_FOR_PAYOUT below for admin to pair manually.
+        const locked = autoMatchEnabled
+          ? await tx.$queryRaw<{ id: string; userId: string }[]>(Prisma.sql`
+              SELECT qe."id", qe."userId" FROM "QueueEntry" qe
+              JOIN "User" u ON u."id" = qe."userId"
+              WHERE qe."levelId" = ${levelId} AND qe."status" = 'WAITING_FOR_PAYOUT' AND qe."userId" != ${userId}
+                AND u."isTestAccount" = ${joiningUser.isTestAccount}
+              ORDER BY qe."queueSequence" ASC
+              LIMIT 1
+              FOR UPDATE SKIP LOCKED
+            `)
+          : [];
         const matchedEntry = locked[0] ?? null;
 
         const newEntry = await tx.queueEntry.create({
@@ -430,6 +436,68 @@ export class QueueService {
   // ---------------------------------------------------------------------------------------
   // Admin
   // ---------------------------------------------------------------------------------------
+
+  /**
+   * Platform-wide switch checked by joinQueue on every new join. Missing row (nobody has ever
+   * toggled it) defaults to enabled, matching the schema default and normal pre-feature behavior.
+   */
+  async getAutoMatchEnabled(): Promise<boolean> {
+    const settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 1 },
+    });
+    return settings?.autoMatchEnabled ?? true;
+  }
+
+  /**
+   * Lets admin pause automatic FIFO matching platform-wide to do manual matches without new
+   * joins auto-matching out from under them, then resume it — upserts the singleton row since
+   * it may not exist yet the first time anyone toggles this.
+   */
+  async setAutoMatchEnabled(
+    adminId: string,
+    enabled: boolean,
+    reason?: string,
+  ): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.platformSettings.findUnique({
+        where: { id: 1 },
+      });
+
+      await tx.platformSettings.upsert({
+        where: { id: 1 },
+        create: {
+          id: 1,
+          autoMatchEnabled: enabled,
+          autoMatchToggledAt: new Date(),
+          autoMatchToggledByAdminId: adminId,
+        },
+        update: {
+          autoMatchEnabled: enabled,
+          autoMatchToggledAt: new Date(),
+          autoMatchToggledByAdminId: adminId,
+        },
+      });
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'AUTO_MATCH_TOGGLED',
+          targetEntityType: 'PlatformSettings',
+          targetEntityId: 'singleton',
+          reason:
+            reason?.trim() ||
+            (enabled
+              ? 'Resumed automatic matching'
+              : 'Paused automatic matching'),
+          beforeState: { autoMatchEnabled: before?.autoMatchEnabled ?? true },
+          afterState: { autoMatchEnabled: enabled },
+        },
+        tx,
+      );
+
+      return enabled;
+    });
+  }
 
   async listForAdminByLevel(levelId: string): Promise<AdminQueueEntryView[]> {
     const entries = await this.prisma.queueEntry.findMany({

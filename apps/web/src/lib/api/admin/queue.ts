@@ -1,6 +1,26 @@
 import { apiFetch } from "../client";
 import type { AdminQueueEntryView, QueueEntrySummary } from "@/types/api";
 
+export async function getAutoMatchStatus(accessToken: string): Promise<boolean> {
+  const res = await apiFetch<{ success: true; data: { enabled: boolean } }>(
+    "/admin/queues/auto-match",
+    { accessToken },
+  );
+  return res.data.enabled;
+}
+
+export async function setAutoMatchStatus(
+  accessToken: string,
+  enabled: boolean,
+  reason?: string,
+): Promise<boolean> {
+  const res = await apiFetch<{ success: true; data: { enabled: boolean } }>(
+    "/admin/queues/auto-match",
+    { method: "POST", accessToken, body: { enabled, reason } },
+  );
+  return res.data.enabled;
+}
+
 export async function listQueueForLevel(
   accessToken: string,
   levelId: string,

@@ -127,6 +127,7 @@ enum AdminActionType {
   QUEUE_ENTRY_RELEASED
   QUEUE_MANUAL_MATCH
   QUEUE_MATCH_CANCELLED
+  AUTO_MATCH_TOGGLED
   LEVEL_UPDATED
   TRANSACTION_PRINCIPAL_CONFIRMED
   TRANSACTION_DISBURSED
@@ -392,6 +393,17 @@ model TreasuryLedgerEntry {
 model TreasuryBalance {
   id      Int @id @default(1)
   balance Int @default(0)
+}
+
+// Single row (id always 1, same singleton pattern as TreasuryBalance) holding site-wide
+// matching configuration — toggled live from the admin panel, no redeploy needed, so admin can
+// pause automatic FIFO matching platform-wide while doing manual matches, then resume it.
+model PlatformSettings {
+  id                        Int       @id @default(1)
+  autoMatchEnabled          Boolean   @default(true)
+  autoMatchToggledAt        DateTime?
+  autoMatchToggledByAdminId String?
+  updatedAt                 DateTime  @updatedAt
 }
 
 // Two rows (REFERRAL, LEVEL_INCENTIVE), seeded by prisma/seed.ts. currentBalance is the
