@@ -275,6 +275,14 @@ model QueueEntry {
   queueSequence Int              @default(autoincrement())
   status        QueueEntryStatus @default(WAITING_FOR_PAYOUT)
 
+  // When this entry most recently BECAME WAITING_FOR_PAYOUT — i.e. how long it's actually been
+  // waiting for its current match, as opposed to queueSequence (fixed at creation, never
+  // changes). An entry that needs a second payer re-enters WAITING_FOR_PAYOUT keeping its
+  // original, low queueSequence, which used to let it wrongly cut ahead of entries still
+  // waiting for their very first match. FIFO matching (joinQueue's SKIP LOCKED query,
+  // getQueueStats' position) orders by this field, not queueSequence.
+  waitingSince DateTime @default(now())
+
   // Doubling payout rule: an entry only reaches COMPLETED once this many separate payers have
   // each paid it in full (confirmed) — every member is re-matched as a payee this many times
   // per join, cycling back to WAITING_FOR_PAYOUT between matches, same as if they'd joined

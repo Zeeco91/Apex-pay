@@ -64,6 +64,9 @@ export interface AdminQueueEntryView {
   userPhone: string;
   status: QueueEntryStatus;
   queueSequence: number;
+  // How long this entry has actually been waiting for its CURRENT match — this, not
+  // queueSequence, is what FIFO matching orders by (see joinQueue).
+  waitingSince: Date;
   joinedAt: Date;
   completedAt: Date | null;
   cancelledAt: Date | null;
@@ -119,20 +122,23 @@ export class QueueService {
           );
         }
 
-        // Lock the oldest waiting entry so two concurrent joins can never match the same
-        // payee — SKIP LOCKED lets a second concurrent joiner fall through to the next oldest
-        // entry (or "no match") instead of blocking on this one. Test accounts (internal/QA
-        // click-through accounts) only ever match other test accounts — never a real member,
-        // in either direction — enforced by requiring the candidate's isTestAccount to equal
-        // the joining user's. Skipped entirely while auto-match is paused — the new entry just
-        // joins WAITING_FOR_PAYOUT below for admin to pair manually.
+        // Lock the entry that's been waiting longest for ITS CURRENT match — waitingSince, not
+        // queueSequence, since an entry needing a second payer re-enters WAITING_FOR_PAYOUT
+        // keeping its original (low) queueSequence, which would otherwise let it wrongly cut
+        // ahead of entries still waiting for their very first match. SKIP LOCKED lets a second
+        // concurrent joiner fall through to the next-oldest entry (or "no match") instead of
+        // blocking on this one. Test accounts (internal/QA click-through accounts) only ever
+        // match other test accounts — never a real member, in either direction — enforced by
+        // requiring the candidate's isTestAccount to equal the joining user's. Skipped entirely
+        // while auto-match is paused — the new entry just joins WAITING_FOR_PAYOUT below for
+        // admin to pair manually.
         const locked = autoMatchEnabled
           ? await tx.$queryRaw<{ id: string; userId: string }[]>(Prisma.sql`
               SELECT qe."id", qe."userId" FROM "QueueEntry" qe
               JOIN "User" u ON u."id" = qe."userId"
               WHERE qe."levelId" = ${levelId} AND qe."status" = 'WAITING_FOR_PAYOUT' AND qe."userId" != ${userId}
                 AND u."isTestAccount" = ${joiningUser.isTestAccount}
-              ORDER BY qe."queueSequence" ASC
+              ORDER BY qe."waitingSince" ASC
               LIMIT 1
               FOR UPDATE SKIP LOCKED
             `)
@@ -268,9 +274,11 @@ export class QueueService {
         });
 
         // The payee did nothing wrong — restore them to WAITING_FOR_PAYOUT rather than the
-        // back of the line. Their original queueSequence is untouched, so they keep their place.
-        // incomingTransactionId is left pointing at the cancelled transaction as a historical
-        // record; it'll be overwritten the next time this entry gets matched.
+        // back of the line. waitingSince is deliberately left untouched (their wait was only
+        // ever interrupted, not restarted) so they don't lose their place to someone who's
+        // joined more recently. incomingTransactionId is left pointing at the cancelled
+        // transaction as a historical record; it'll be overwritten the next time this entry
+        // gets matched.
         await tx.queueEntry.update({
           where: { id: transaction.payeeQueueEntryId },
           data: { status: 'WAITING_FOR_PAYOUT' },
@@ -408,7 +416,7 @@ export class QueueService {
           where: {
             levelId,
             status: 'WAITING_FOR_PAYOUT',
-            queueSequence: { lt: yourEntry.queueSequence },
+            waitingSince: { lt: yourEntry.waitingSince },
             user: { isTestAccount: requestingUser.isTestAccount },
           },
         })) + 1;
@@ -518,6 +526,7 @@ export class QueueService {
         userPhone: entry.user.phone,
         status: entry.status,
         queueSequence: entry.queueSequence,
+        waitingSince: entry.waitingSince,
         joinedAt: entry.joinedAt,
         completedAt: entry.completedAt,
         cancelledAt: entry.cancelledAt,
@@ -733,7 +742,7 @@ export class QueueService {
             in: [transaction.payerQueueEntryId, transaction.payeeQueueEntryId],
           },
         },
-        data: { status: 'WAITING_FOR_PAYOUT' },
+        data: { status: 'WAITING_FOR_PAYOUT', waitingSince: new Date() },
       });
 
       await this.auditLog.record(

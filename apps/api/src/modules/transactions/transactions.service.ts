@@ -206,11 +206,12 @@ export class TransactionsService {
       });
 
       await this.recordConfirmedPayeePayout(tx, transaction.payeeQueueEntryId);
-      // Their original queueSequence is untouched — they now wait for their own payout in the
-      // same relative position they'd have if they'd joined fresh at that moment.
+      // Their wait for their own payout starts now — waitingSince resets so they're queued
+      // fairly behind everyone already waiting, rather than keeping a stale timestamp from
+      // whenever this entry was originally created.
       await tx.queueEntry.update({
         where: { id: transaction.payerQueueEntryId },
-        data: { status: 'WAITING_FOR_PAYOUT' },
+        data: { status: 'WAITING_FOR_PAYOUT', waitingSince: new Date() },
       });
 
       // Either party (or both) may be a referred user completing their first-ever transaction —
@@ -323,7 +324,7 @@ export class TransactionsService {
         );
         await tx.queueEntry.update({
           where: { id: transaction.payerQueueEntryId },
-          data: { status: 'WAITING_FOR_PAYOUT' },
+          data: { status: 'WAITING_FOR_PAYOUT', waitingSince: new Date() },
         });
         // Admin-resolved-confirmed is a legitimate completion in every respect — treat it the
         // same as a normal confirmReceipt for referral bonus triggering.
@@ -333,16 +334,17 @@ export class TransactionsService {
         );
       } else {
         // Admin sides with the dispute — void the match, both parties return to the pool
-        // unmatched. This does not reverse any treasury ledger entries already recorded for
-        // this transaction; clawing back money already moved is a manual finance action
-        // outside what this endpoint can do on its own.
+        // unmatched, queued fairly as of right now (mirrors adminCancelEntry's live-match-void
+        // branch). This does not reverse any treasury ledger entries already recorded for this
+        // transaction; clawing back money already moved is a manual finance action outside what
+        // this endpoint can do on its own.
         await tx.queueEntry.update({
           where: { id: transaction.payeeQueueEntryId },
-          data: { status: 'WAITING_FOR_PAYOUT' },
+          data: { status: 'WAITING_FOR_PAYOUT', waitingSince: new Date() },
         });
         await tx.queueEntry.update({
           where: { id: transaction.payerQueueEntryId },
-          data: { status: 'WAITING_FOR_PAYOUT' },
+          data: { status: 'WAITING_FOR_PAYOUT', waitingSince: new Date() },
         });
       }
 
@@ -402,7 +404,15 @@ export class TransactionsService {
       where: { id: payeeQueueEntryId },
       data: isFullyPaidOut
         ? { payersConfirmedCount, status: 'COMPLETED', completedAt: new Date() }
-        : { payersConfirmedCount, status: 'WAITING_FOR_PAYOUT' },
+        : {
+            payersConfirmedCount,
+            status: 'WAITING_FOR_PAYOUT',
+            // Resets so this entry is fairly queued behind everyone already waiting for their
+            // first match — without this, its original (low) queueSequence would let it keep
+            // cutting ahead of entries that have never been matched at all (the bug this field
+            // exists to fix).
+            waitingSince: new Date(),
+          },
     });
   }
 

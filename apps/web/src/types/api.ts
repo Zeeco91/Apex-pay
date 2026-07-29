@@ -172,6 +172,9 @@ export interface AdminQueueEntryView {
   userPhone: string;
   status: QueueEntryStatus;
   queueSequence: number;
+  // How long this entry has actually been waiting for its CURRENT match — matching orders by
+  // this, not queueSequence (which never changes after an entry's first-ever join).
+  waitingSince: string;
   joinedAt: string;
   completedAt: string | null;
   cancelledAt: string | null;
