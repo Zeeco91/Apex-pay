@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import * as authApi from "@/lib/api/auth";
+import { clearSessionHandlers, registerSessionHandlers } from "@/lib/api/session-bridge";
 import { getMe } from "@/lib/api/users";
 import type { PublicUser } from "@/types/api";
 
@@ -86,6 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Runs once on mount only — session restoration shouldn't re-run when setSession/clearSession identities change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    registerSessionHandlers({
+      refresh: async () => {
+        const { accessToken: freshToken } = await authApi.refreshSession();
+        const freshUser = await getMe(freshToken);
+        setSession(freshUser, freshToken);
+        return freshToken;
+      },
+      clear: clearSession,
+    });
+    return () => clearSessionHandlers();
+  }, [setSession, clearSession]);
 
   return (
     <AuthContext.Provider value={{ status, user, accessToken, setSession, refreshUser, logout }}>

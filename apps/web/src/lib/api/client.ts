@@ -1,3 +1,5 @@
+import { notifySessionExpired, refreshAccessToken } from "./session-bridge";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 export class ApiError extends Error {
@@ -16,20 +18,15 @@ interface ApiFetchOptions {
   accessToken?: string | null;
 }
 
-/**
- * Every request carries credentials so the httpOnly refresh-token cookie rides along —
- * the access token stays in memory only and is attached explicitly per-call.
- */
-export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+function doFetch(path: string, options: ApiFetchOptions, accessToken?: string | null): Promise<Response> {
   const isFormData = options.body instanceof FormData;
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  return fetch(`${API_BASE_URL}${path}`, {
     method: options.method ?? "GET",
     credentials: "include",
     headers: {
       // Omit Content-Type for FormData — the browser sets its own multipart boundary.
       ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
     body: isFormData
       ? (options.body as FormData)
@@ -37,6 +34,30 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
         ? JSON.stringify(options.body)
         : undefined,
   });
+}
+
+/**
+ * Every request carries credentials so the httpOnly refresh-token cookie rides along —
+ * the access token stays in memory only and is attached explicitly per-call.
+ *
+ * The in-memory access token is short-lived (15 minutes) and, before this, was only ever
+ * refreshed once on page load — leaving any page open longer than that turned every
+ * subsequent call into a bare "Unauthorized" with no recovery short of a manual reload. A 401
+ * on a call that carried a token now triggers exactly one silent refresh-and-retry; only if
+ * the refresh itself fails (refresh token also dead) does the session actually end.
+ */
+export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
+  let response = await doFetch(path, options, options.accessToken);
+
+  if (response.status === 401 && options.accessToken) {
+    try {
+      const freshToken = await refreshAccessToken();
+      response = await doFetch(path, options, freshToken);
+    } catch {
+      notifySessionExpired();
+      // Fall through — response is still the original 401 and is thrown below as usual.
+    }
+  }
 
   const payload = await parseJsonSafely(response);
 
