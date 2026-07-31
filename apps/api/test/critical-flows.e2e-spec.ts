@@ -72,6 +72,7 @@ describe('Critical flows (e2e)', () => {
   let prisma: PrismaService;
   let queueService: QueueService;
   let sms: CapturingSmsProvider;
+  let helpActionsEnabledBeforeSuite: boolean | null = null;
 
   beforeAll(async () => {
     sms = new CapturingSmsProvider();
@@ -95,9 +96,28 @@ describe('Critical flows (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
     queueService = app.get(QueueService);
+
+    // helpActionsEnabled defaults to false (platform launch hold) so a fresh singleton row
+    // would block every joinQueue call below — this suite exercises the live contribution
+    // cycle, so it needs the platform "launched" for the duration of the run. This hits the
+    // same real, shared database as `npm run start:dev` (see class comment above), so the
+    // prior value is restored in afterAll rather than left flipped on for real after the suite.
+    const existingSettings = await prisma.platformSettings.findUnique({
+      where: { id: 1 },
+    });
+    helpActionsEnabledBeforeSuite = existingSettings?.helpActionsEnabled ?? null;
+    await prisma.platformSettings.upsert({
+      where: { id: 1 },
+      create: { id: 1, helpActionsEnabled: true },
+      update: { helpActionsEnabled: true },
+    });
   });
 
   afterAll(async () => {
+    await prisma.platformSettings.update({
+      where: { id: 1 },
+      data: { helpActionsEnabled: helpActionsEnabledBeforeSuite ?? false },
+    });
     await app.close();
   });
 

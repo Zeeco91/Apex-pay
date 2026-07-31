@@ -314,7 +314,8 @@ export type AdminActionType =
   | "WITHDRAWAL_REJECTED"
   | "WITHDRAWAL_PAID"
   | "PUBLIC_HOLIDAY_ADDED"
-  | "PUBLIC_HOLIDAY_REMOVED";
+  | "PUBLIC_HOLIDAY_REMOVED"
+  | "HELP_ACTIONS_TOGGLED";
 
 export interface AdminAuditLogEntry {
   id: string;

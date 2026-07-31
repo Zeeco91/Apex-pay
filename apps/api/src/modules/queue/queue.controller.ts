@@ -11,6 +11,12 @@ import { QueueService } from './queue.service';
 export class QueueController {
   constructor(private readonly queueService: QueueService) {}
 
+  @Get('queues/help-actions')
+  async getHelpActionsStatus() {
+    const enabled = await this.queueService.getHelpActionsEnabled();
+    return { success: true, data: { enabled } };
+  }
+
   @Post('levels/:levelId/queue-entries')
   async joinQueue(
     @CurrentUser() user: AuthenticatedUser,

@@ -1,6 +1,14 @@
 import { apiFetch } from "./client";
 import type { JoinQueueResult, QueueEntrySummary } from "@/types/api";
 
+export async function getHelpActionsStatus(accessToken: string): Promise<boolean> {
+  const res = await apiFetch<{ success: true; data: { enabled: boolean } }>(
+    "/queues/help-actions",
+    { accessToken },
+  );
+  return res.data.enabled;
+}
+
 export async function joinQueue(accessToken: string, levelId: string): Promise<JoinQueueResult> {
   const res = await apiFetch<{ success: true; data: JoinQueueResult }>(
     `/levels/${levelId}/queue-entries`,

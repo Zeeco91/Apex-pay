@@ -21,6 +21,26 @@ export async function setAutoMatchStatus(
   return res.data.enabled;
 }
 
+export async function getHelpActionsStatus(accessToken: string): Promise<boolean> {
+  const res = await apiFetch<{ success: true; data: { enabled: boolean } }>(
+    "/admin/queues/help-actions",
+    { accessToken },
+  );
+  return res.data.enabled;
+}
+
+export async function setHelpActionsStatus(
+  accessToken: string,
+  enabled: boolean,
+  reason?: string,
+): Promise<boolean> {
+  const res = await apiFetch<{ success: true; data: { enabled: boolean } }>(
+    "/admin/queues/help-actions",
+    { method: "POST", accessToken, body: { enabled, reason } },
+  );
+  return res.data.enabled;
+}
+
 export async function listQueueForLevel(
   accessToken: string,
   levelId: string,

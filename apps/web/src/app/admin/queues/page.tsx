@@ -12,6 +12,8 @@ import {
   releaseQueueEntry,
   getAutoMatchStatus,
   setAutoMatchStatus,
+  getHelpActionsStatus,
+  setHelpActionsStatus,
 } from "@/lib/api/admin/queue";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -60,6 +62,10 @@ export default function AdminQueuesPage() {
   const [isTogglingAutoMatch, setIsTogglingAutoMatch] = useState(false);
   const [autoMatchError, setAutoMatchError] = useState<string | null>(null);
 
+  const [helpActionsEnabled, setHelpActionsEnabled] = useState<boolean | null>(null);
+  const [isTogglingHelpActions, setIsTogglingHelpActions] = useState(false);
+  const [helpActionsError, setHelpActionsError] = useState<string | null>(null);
+
   useEffect(() => {
     getLevels()
       .then((data) => {
@@ -88,6 +94,28 @@ export default function AdminQueuesPage() {
       setAutoMatchError(err instanceof ApiError ? err.message : "Failed to update auto-match status.");
     } finally {
       setIsTogglingAutoMatch(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!accessToken) return;
+    getHelpActionsStatus(accessToken)
+      .then((enabled) => setHelpActionsEnabled(enabled))
+      .catch((err) => setHelpActionsError(err instanceof ApiError ? err.message : "Failed to load launch status."));
+  }, [accessToken]);
+
+  async function handleToggleHelpActions() {
+    if (!accessToken || helpActionsEnabled === null) return;
+    const next = !helpActionsEnabled;
+    setIsTogglingHelpActions(true);
+    setHelpActionsError(null);
+    try {
+      const enabled = await setHelpActionsStatus(accessToken, next);
+      setHelpActionsEnabled(enabled);
+    } catch (err) {
+      setHelpActionsError(err instanceof ApiError ? err.message : "Failed to update launch status.");
+    } finally {
+      setIsTogglingHelpActions(false);
     }
   }
 
@@ -164,6 +192,34 @@ export default function AdminQueuesPage() {
           Select two members waiting for payout to force a match, or place an entry on hold.
         </p>
       </div>
+
+      <div
+        className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${
+          helpActionsEnabled === false ? "border-warning/40 bg-warning/5" : "border-border bg-background"
+        }`}
+      >
+        <div>
+          <p className="text-sm font-semibold text-foreground">Platform launch</p>
+          <p className="mt-1 text-xs text-muted">
+            {helpActionsEnabled === null
+              ? "Loading…"
+              : helpActionsEnabled
+                ? "Live — members can use Provide Help and Get Help."
+                : "On hold — members can register and browse, but can't join a queue yet."}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant={helpActionsEnabled ? "outline" : "primary"}
+          isLoading={isTogglingHelpActions}
+          disabled={helpActionsEnabled === null}
+          onClick={() => void handleToggleHelpActions()}
+          className="self-start sm:self-auto"
+        >
+          {helpActionsEnabled ? "Put back on hold" : "Launch now"}
+        </Button>
+      </div>
+      {helpActionsError ? <p className="text-sm text-danger">{helpActionsError}</p> : null}
 
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

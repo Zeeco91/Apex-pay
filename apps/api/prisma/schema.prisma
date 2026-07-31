@@ -128,6 +128,7 @@ enum AdminActionType {
   QUEUE_MANUAL_MATCH
   QUEUE_MATCH_CANCELLED
   AUTO_MATCH_TOGGLED
+  HELP_ACTIONS_TOGGLED
   LEVEL_UPDATED
   TRANSACTION_PRINCIPAL_CONFIRMED
   TRANSACTION_DISBURSED
@@ -411,7 +412,16 @@ model PlatformSettings {
   autoMatchEnabled          Boolean   @default(true)
   autoMatchToggledAt        DateTime?
   autoMatchToggledByAdminId String?
-  updatedAt                 DateTime  @updatedAt
+
+  // Platform-wide launch hold: while false, members can register and browse but joining a
+  // level's queue (Provide Help / Get Help) is blocked. Defaults to false so a missing row
+  // (nobody has ever toggled it) means the platform is held, not live, until an admin
+  // explicitly flips it on at launch.
+  helpActionsEnabled          Boolean   @default(false)
+  helpActionsToggledAt        DateTime?
+  helpActionsToggledByAdminId String?
+
+  updatedAt DateTime @updatedAt
 }
 
 // Two rows (REFERRAL, LEVEL_INCENTIVE), seeded by prisma/seed.ts. currentBalance is the

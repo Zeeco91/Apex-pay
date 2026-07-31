@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { getLevels } from "@/lib/api/levels";
-import { cancelQueueEntry, joinQueue, listMyQueueEntries } from "@/lib/api/queue";
+import { cancelQueueEntry, getHelpActionsStatus, joinQueue, listMyQueueEntries } from "@/lib/api/queue";
 import { ApiError } from "@/lib/api/client";
 import { formatNaira } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
@@ -28,6 +28,7 @@ export default function DashboardLevelsPage() {
   const [joiningLevelId, setJoiningLevelId] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [helpActionsEnabled, setHelpActionsEnabled] = useState<boolean | null>(null);
 
   const loadActiveEntry = useCallback(async () => {
     if (!accessToken) return;
@@ -58,6 +59,13 @@ export default function DashboardLevelsPage() {
     return () => {
       cancelled = true;
     };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    getHelpActionsStatus(accessToken)
+      .then((enabled) => setHelpActionsEnabled(enabled))
+      .catch(() => setHelpActionsEnabled(true));
   }, [accessToken]);
 
   async function handleJoin(levelId: string) {
@@ -161,34 +169,43 @@ export default function DashboardLevelsPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {levels.map((level) => {
-            const isJoining = joiningLevelId === level.id;
+        <div className="flex flex-col gap-6">
+          {helpActionsEnabled === false && (
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm text-foreground">
+              APEX PAY hasn&apos;t officially launched yet. You can browse levels now, but joining a queue opens
+              once we go live.
+            </div>
+          )}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {levels.map((level) => {
+              const isJoining = joiningLevelId === level.id;
 
-            return (
-              <div
-                key={level.id}
-                className="flex flex-col rounded-2xl border border-border bg-background p-6 shadow-sm"
-              >
-                <span className="text-sm font-semibold uppercase tracking-wide text-muted">{level.name}</span>
-                <span className="mt-2 text-3xl font-bold text-foreground">
-                  {formatNaira(level.contributionAmount)}
-                </span>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-6 w-full"
-                  isLoading={isJoining}
-                  onClick={() => void handleJoin(level.id)}
+              return (
+                <div
+                  key={level.id}
+                  className="flex flex-col rounded-2xl border border-border bg-background p-6 shadow-sm"
                 >
-                  {isJoining ? "Joining…" : "Join"}
-                </Button>
-              </div>
-            );
-          })}
+                  <span className="text-sm font-semibold uppercase tracking-wide text-muted">{level.name}</span>
+                  <span className="mt-2 text-3xl font-bold text-foreground">
+                    {formatNaira(level.contributionAmount)}
+                  </span>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-6 w-full"
+                    isLoading={isJoining}
+                    disabled={helpActionsEnabled === false}
+                    onClick={() => void handleJoin(level.id)}
+                  >
+                    {isJoining ? "Joining…" : helpActionsEnabled === false ? "Not open yet" : "Join"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
           {actionError && (
-            <p role="alert" className="text-sm text-danger sm:col-span-2 lg:col-span-3">
+            <p role="alert" className="text-sm text-danger">
               {actionError}
             </p>
           )}

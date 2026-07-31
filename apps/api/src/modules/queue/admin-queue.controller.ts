@@ -12,6 +12,7 @@ import { HoldEntryDto } from './dto/hold-entry.dto';
 import { ReleaseEntryDto } from './dto/release-entry.dto';
 import { AdminCancelEntryDto } from './dto/admin-cancel-entry.dto';
 import { ToggleAutoMatchDto } from './dto/toggle-auto-match.dto';
+import { ToggleHelpActionsDto } from './dto/toggle-help-actions.dto';
 
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,6 +32,25 @@ export class AdminQueueController {
     @Body() dto: ToggleAutoMatchDto,
   ) {
     const enabled = await this.queueService.setAutoMatchEnabled(
+      admin.id,
+      dto.enabled,
+      dto.reason,
+    );
+    return { success: true, data: { enabled } };
+  }
+
+  @Get('admin/queues/help-actions')
+  async getHelpActions() {
+    const enabled = await this.queueService.getHelpActionsEnabled();
+    return { success: true, data: { enabled } };
+  }
+
+  @Post('admin/queues/help-actions')
+  async setHelpActions(
+    @CurrentUser() admin: AuthenticatedUser,
+    @Body() dto: ToggleHelpActionsDto,
+  ) {
+    const enabled = await this.queueService.setHelpActionsEnabled(
       admin.id,
       dto.enabled,
       dto.reason,

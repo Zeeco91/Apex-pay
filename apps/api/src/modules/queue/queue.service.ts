@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -101,6 +102,15 @@ export class QueueService {
         if (!level || !level.isActive) {
           throw new NotFoundException('Level not found');
         }
+
+        // Platform-wide launch hold (see setHelpActionsEnabled): missing row defaults to held,
+        // not live, so Provide Help / Get Help stay blocked until an admin explicitly launches.
+        if (!(platformSettings?.helpActionsEnabled ?? false)) {
+          throw new ForbiddenException(
+            "Provide Help and Get Help aren't open yet. We'll let you know as soon as APEX PAY officially launches.",
+          );
+        }
+
         // Admin can pause automatic FIFO matching platform-wide (see setAutoMatchEnabled) to do
         // manual matches without new joins auto-matching out from under them — missing row
         // defaults to enabled, so the feature works before the singleton row is ever written.
@@ -499,6 +509,70 @@ export class QueueService {
               : 'Paused automatic matching'),
           beforeState: { autoMatchEnabled: before?.autoMatchEnabled ?? true },
           afterState: { autoMatchEnabled: enabled },
+        },
+        tx,
+      );
+
+      return enabled;
+    });
+  }
+
+  /**
+   * Platform-wide launch hold checked by joinQueue on every new join attempt. Missing row
+   * (nobody has ever toggled it) defaults to disabled, so the platform stays held until an
+   * admin explicitly launches it — the opposite default from getAutoMatchEnabled, since that
+   * flag protects an already-live platform while this one gates going live in the first place.
+   */
+  async getHelpActionsEnabled(): Promise<boolean> {
+    const settings = await this.prisma.platformSettings.findUnique({
+      where: { id: 1 },
+    });
+    return settings?.helpActionsEnabled ?? false;
+  }
+
+  /**
+   * Lets admin take the platform off launch hold (or put it back on hold) without a redeploy.
+   * While held, members can still register and browse but can't join a level's queue. Upserts
+   * the singleton row since it may not exist yet the first time anyone toggles this.
+   */
+  async setHelpActionsEnabled(
+    adminId: string,
+    enabled: boolean,
+    reason?: string,
+  ): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.platformSettings.findUnique({
+        where: { id: 1 },
+      });
+
+      await tx.platformSettings.upsert({
+        where: { id: 1 },
+        create: {
+          id: 1,
+          helpActionsEnabled: enabled,
+          helpActionsToggledAt: new Date(),
+          helpActionsToggledByAdminId: adminId,
+        },
+        update: {
+          helpActionsEnabled: enabled,
+          helpActionsToggledAt: new Date(),
+          helpActionsToggledByAdminId: adminId,
+        },
+      });
+
+      await this.auditLog.record(
+        {
+          adminUserId: adminId,
+          actionType: 'HELP_ACTIONS_TOGGLED',
+          targetEntityType: 'PlatformSettings',
+          targetEntityId: 'singleton',
+          reason:
+            reason?.trim() ||
+            (enabled
+              ? 'Launched: Provide Help and Get Help are now open'
+              : 'Put Provide Help and Get Help back on hold'),
+          beforeState: { helpActionsEnabled: before?.helpActionsEnabled ?? false },
+          afterState: { helpActionsEnabled: enabled },
         },
         tx,
       );
