@@ -80,7 +80,7 @@ export class TokenService {
     });
 
     if (!existing) {
-      throw new UnauthorizedException('Invalid session — please log in again');
+      throw new UnauthorizedException('Invalid session. Please log in again');
     }
 
     if (existing.revokedAt) {
@@ -88,11 +88,11 @@ export class TokenService {
         where: { userId: existing.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
-      throw new UnauthorizedException('Session invalid — please log in again');
+      throw new UnauthorizedException('Session invalid. Please log in again');
     }
 
     if (existing.expiresAt < new Date()) {
-      throw new UnauthorizedException('Session expired — please log in again');
+      throw new UnauthorizedException('Session expired. Please log in again');
     }
 
     await this.prisma.refreshToken.update({

@@ -172,8 +172,8 @@ export default function AdminQueuesPage() {
             {autoMatchEnabled === null
               ? "Loading…"
               : autoMatchEnabled
-                ? "On — new joins are matched automatically across every level."
-                : "Off — new joins wait for you to match them manually. Manual matching still works as normal."}
+                ? "On: new joins are matched automatically across every level."
+                : "Off: new joins wait for you to match them manually. Manual matching still works as normal."}
           </p>
         </div>
         <Button

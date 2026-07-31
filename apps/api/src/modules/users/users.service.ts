@@ -209,7 +209,7 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     if (!SUSPENDABLE_STATUSES.includes(user.status)) {
       throw new ConflictException(
-        `Can't suspend — this account is already ${describeStatus(user.status)}.`,
+        `Can't suspend: this account is already ${describeStatus(user.status)}.`,
       );
     }
 
@@ -265,7 +265,7 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     if (user.status !== 'SUSPENDED' && user.status !== 'BANNED') {
       throw new ConflictException(
-        `Can't reinstate — this account is ${describeStatus(user.status)}, not suspended or banned.`,
+        `Can't reinstate: this account is ${describeStatus(user.status)}, not suspended or banned.`,
       );
     }
 

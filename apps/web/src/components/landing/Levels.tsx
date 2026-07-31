@@ -11,7 +11,7 @@ export function Levels() {
             Choose your savings level
           </h2>
           <p className="mt-4 text-lg text-muted">
-            Six contribution tiers. Join the level that fits your budget — you
+            Six contribution tiers. Join the level that fits your budget. You
             can only be in one active queue per level at a time.
           </p>
         </div>

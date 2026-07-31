@@ -107,7 +107,7 @@ export default function AdminAuditLogPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Audit Log</h1>
         <p className="mt-1 text-sm text-muted">
-          Every discretionary or adverse admin action, most recent first — {total} total.
+          Every discretionary or adverse admin action, most recent first · {total} total.
         </p>
       </div>
 

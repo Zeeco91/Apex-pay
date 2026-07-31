@@ -119,13 +119,13 @@ export class OtpService {
 
     if (!otp) {
       throw new BadRequestException(
-        'No active code found for this number — request a new one',
+        'No active code found for this number. Request a new one',
       );
     }
 
     if (otp.attemptCount >= maxAttempts) {
       throw new HttpException(
-        'Too many incorrect attempts — request a new code',
+        'Too many incorrect attempts. Request a new code',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

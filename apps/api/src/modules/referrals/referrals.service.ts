@@ -469,7 +469,7 @@ export class ReferralsService {
     if (!request) throw new NotFoundException('Withdrawal request not found');
     if (request.status !== 'PENDING') {
       throw new ConflictException(
-        `Can't approve — this request is ${describeStatus(request.status)}.`,
+        `Can't approve: this request is ${describeStatus(request.status)}.`,
       );
     }
     const updated = await this.prisma.withdrawalRequest.update({
@@ -503,7 +503,7 @@ export class ReferralsService {
     if (!request) throw new NotFoundException('Withdrawal request not found');
     if (request.status !== 'PENDING') {
       throw new ConflictException(
-        `Can't reject — this request is ${describeStatus(request.status)}.`,
+        `Can't reject: this request is ${describeStatus(request.status)}.`,
       );
     }
     const updated = await this.prisma.withdrawalRequest.update({
@@ -537,7 +537,7 @@ export class ReferralsService {
       if (!request) throw new NotFoundException('Withdrawal request not found');
       if (request.status !== 'APPROVED') {
         throw new ConflictException(
-          `Can't mark paid — this request is ${describeStatus(request.status)}.`,
+          `Can't mark paid: this request is ${describeStatus(request.status)}.`,
         );
       }
 
@@ -550,7 +550,7 @@ export class ReferralsService {
       );
       if (currentBalance < request.amount) {
         throw new ConflictException(
-          `Referral pool balance (₦${currentBalance}) can't cover this ₦${request.amount} bonus yet — check back once more fee revenue has accumulated.`,
+          `Referral pool balance (₦${currentBalance}) can't cover this ₦${request.amount} bonus yet. Check back once more fee revenue has accumulated.`,
         );
       }
 

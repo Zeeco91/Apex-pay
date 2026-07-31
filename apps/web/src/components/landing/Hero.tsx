@@ -22,8 +22,8 @@ export function Hero() {
         </h1>
 
         <p className="mt-6 max-w-2xl text-lg leading-8 text-muted">
-          APEX PAY organizes members into contribution queues by savings level —
-          you get your investment back with returns when it&apos;s your turn, no
+          APEX PAY organizes members into contribution queues by savings level.
+          You get your investment back with returns when it&apos;s your turn, no
           guessing games.
         </p>
 

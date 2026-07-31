@@ -181,7 +181,7 @@ export function TransactionPanel({ transactionId, onEntryStatusChange }: Transac
               <p className="font-medium text-foreground">Send {formatNaira(detail.principalAmount)} to:</p>
               <p className="mt-1 text-muted">{detail.payeeBankDetails.bankName}</p>
               <p className="text-muted">
-                {detail.payeeBankDetails.accountNumber} — {detail.payeeBankDetails.accountName}
+                {detail.payeeBankDetails.accountNumber} · {detail.payeeBankDetails.accountName}
               </p>
             </div>
           ) : (

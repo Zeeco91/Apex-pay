@@ -145,7 +145,7 @@ export class TransactionsService {
       }
       if (transaction.status !== 'AWAITING_PAYER_PROOF') {
         throw new ConflictException(
-          `Can't upload proof — this transaction is ${describeStatus(transaction.status)}.`,
+          `Can't upload proof: this transaction is ${describeStatus(transaction.status)}.`,
         );
       }
 
@@ -195,7 +195,7 @@ export class TransactionsService {
       // confirm as soon as proof has been submitted, instead of waiting on an admin disbursement.
       if (transaction.status !== 'PROOF_SUBMITTED') {
         throw new ConflictException(
-          `Can't confirm receipt — this transaction is ${describeStatus(transaction.status)}.`,
+          `Can't confirm receipt: this transaction is ${describeStatus(transaction.status)}.`,
         );
       }
 
@@ -243,7 +243,7 @@ export class TransactionsService {
       }
       if (TERMINAL_TRANSACTION_STATUSES.includes(transaction.status)) {
         throw new ConflictException(
-          `Can't raise a dispute — this transaction is already ${describeStatus(transaction.status)}.`,
+          `Can't raise a dispute: this transaction is already ${describeStatus(transaction.status)}.`,
         );
       }
 
@@ -298,7 +298,7 @@ export class TransactionsService {
       if (!transaction) throw new NotFoundException('Transaction not found');
       if (transaction.status !== 'DISPUTED') {
         throw new ConflictException(
-          `Can't resolve — this transaction is ${describeStatus(transaction.status)}, not disputed.`,
+          `Can't resolve: this transaction is ${describeStatus(transaction.status)}, not disputed.`,
         );
       }
 

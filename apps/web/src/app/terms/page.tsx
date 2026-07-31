@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { LegalPageLayout, LegalSection } from "@/components/legal/LegalPageLayout";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — APEX PAY",
+  title: "Terms of Service · APEX PAY",
   description: "The terms governing use of the APEX PAY contribution-based savings queue platform.",
 };
 
@@ -19,11 +19,11 @@ export default function TermsPage() {
           &quot;investment,&quot; but <strong>APEX PAY does not operate like a traditional investment product and
           does not promise a fixed or guaranteed rate of return.</strong> Under the core savings mechanism, you
           always receive back exactly what you contributed, minus a platform fee. Depending on your level, you
-          may also receive an additional level incentive bonus — a separate, capped benefit funded only from
+          may also receive an additional level incentive bonus: a separate, capped benefit funded only from
           platform fee revenue and never guaranteed, described further in Section 5. Wherever this site refers
           to your contribution being &quot;returned&quot; or getting your &quot;investment back,&quot; it means
           exactly that: your original contribution paid back to you, plus this optional bonus where your level
-          offers one — never a promised profit, interest, or guaranteed additional return.
+          offers one, never a promised profit, interest, or guaranteed additional return.
         </p>
       </LegalSection>
 
@@ -66,7 +66,7 @@ export default function TermsPage() {
       <LegalSection heading="4. Payout timing is not guaranteed">
         <p>
           <strong>How long you wait for a payout depends on how quickly new members join your level&apos;s queue
-          behind you — it is not a fixed or guaranteed timeframe.</strong> We show a real-time, data-driven
+          behind you. It is not a fixed or guaranteed timeframe.</strong> We show a real-time, data-driven
           estimate in your dashboard, but queue liquidity can move faster or slower than that estimate,
           particularly in a level&apos;s early days or during periods of lower signups. The first member to join a
           new level has no one ahead of them to be paid by and will wait until a second member joins. By joining
@@ -78,7 +78,7 @@ export default function TermsPage() {
         <ul>
           <li>
             <strong>Referral bonus:</strong> shared referral codes may earn the referrer a bonus once the
-            referred member&apos;s first contribution cycle is confirmed complete — not merely at sign-up. Referral
+            referred member&apos;s first contribution cycle is confirmed complete, not merely at sign-up. Referral
             bonuses are funded entirely from APEX PAY&apos;s fee revenue, never from another member&apos;s
             contribution, and are held for 30 working days before becoming withdrawable, as a standard
             anti-fraud safeguard.
@@ -87,7 +87,7 @@ export default function TermsPage() {
             <strong>Level incentive bonus:</strong> higher savings levels may offer an additional bonus on top of
             your returned contribution. This bonus is strictly capped by what is actually available in the
             platform&apos;s accumulated incentive fee pool at the moment of your payout. If the pool is thin, your
-            bonus may be reduced or paid as zero — it is never borrowed against future fee revenue.{" "}
+            bonus may be reduced or paid as zero. It is never borrowed against future fee revenue.{" "}
             <strong>The level incentive bonus is described as &quot;up to&quot; a rate. It is never a guaranteed
             return</strong>, and nothing in our marketing or in-app copy should be read as promising otherwise.
           </li>
@@ -119,7 +119,7 @@ export default function TermsPage() {
           <li>Using APEX PAY for money laundering, terrorist financing, or any other unlawful purpose.</li>
           <li>Attempting to interfere with, reverse-engineer, or abuse the queue-matching system.</li>
         </ul>
-        <p>We use heuristic fraud detection (for example, shared payout bank details across accounts, or unusual referral signup bursts) to flag accounts for human review. These flags direct review — they do not by themselves suspend an account.</p>
+        <p>We use heuristic fraud detection (for example, shared payout bank details across accounts, or unusual referral signup bursts) to flag accounts for human review. These flags direct review. They do not by themselves suspend an account.</p>
       </LegalSection>
 
       <LegalSection heading="9. Limitation of liability">

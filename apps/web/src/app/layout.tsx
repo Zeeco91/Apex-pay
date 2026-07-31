@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import "./globals.css";
 
-const title = "APEX PAY — Save Together, Get Paid In Turn";
+const title = "APEX PAY: Save Together, Get Paid In Turn";
 const description =
   "APEX PAY is a transparent, contribution-based savings queue. Choose a savings level, contribute once, and get your full contribution back when it's your turn. No guaranteed returns, no hidden fees.";
 

@@ -122,7 +122,7 @@ export default function DashboardReferralsPage() {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Referrals</h1>
         <p className="mt-1 text-sm text-muted">
           Share your code. Your bonus is credited once a referral&apos;s first contribution cycle is
-          confirmed complete — never at sign-up.
+          confirmed complete, never at sign-up.
         </p>
       </div>
 
@@ -203,7 +203,7 @@ export default function DashboardReferralsPage() {
           <section>
             <h2 className="text-lg font-semibold text-foreground">Your referral bonuses</h2>
             {state.bonuses.length === 0 ? (
-              <EmptyCard message="No bonuses yet — they appear once a referral completes their first contribution cycle." />
+              <EmptyCard message="No bonuses yet. They appear once a referral completes their first contribution cycle." />
             ) : (
               <div className="mt-4 flex flex-col gap-3">
                 {state.bonuses.map((b) => {
@@ -215,12 +215,12 @@ export default function DashboardReferralsPage() {
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <p className="font-medium text-foreground">
-                            {formatNaira(b.bonusAmount)} — {b.levelName}
+                            {formatNaira(b.bonusAmount)} · {b.levelName}
                           </p>
                           <p className="text-sm text-muted">
                             From {b.referredUserFullName}
                             {b.status === "HOLD"
-                              ? ` — available ${new Date(b.holdReleaseAt).toLocaleDateString()}`
+                              ? ` · available ${new Date(b.holdReleaseAt).toLocaleDateString()}`
                               : ""}
                           </p>
                         </div>

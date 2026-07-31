@@ -130,7 +130,7 @@ export default function AdminReferralsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Referrals & Bonuses</h1>
         <p className="mt-1 text-sm text-muted">
-          Both bonus types are hard-capped by their fee pool balance — never funded by other members&apos; contributions.
+          Both bonus types are hard-capped by their fee pool balance, never funded by other members&apos; contributions.
         </p>
       </div>
 

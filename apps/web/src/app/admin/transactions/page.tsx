@@ -69,7 +69,7 @@ export default function AdminTransactionsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Transactions</h1>
         <p className="mt-1 text-sm text-muted">
-          Members pay each other directly — resolve disputes when something goes wrong.
+          Members pay each other directly. Resolve disputes when something goes wrong.
         </p>
       </div>
 

@@ -4,7 +4,7 @@ import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
 
 export const metadata: Metadata = {
-  title: "Contact Support — APEX PAY",
+  title: "Contact Support · APEX PAY",
 };
 
 export default function ContactPage() {

@@ -15,12 +15,12 @@ export function formatEnumLabel(value: string): string {
 }
 
 const QUEUE_ENTRY_STATUS_LABELS: Record<QueueEntryStatus, string> = {
-  PENDING_JOIN_PAYMENT: "Matched — awaiting your contribution",
+  PENDING_JOIN_PAYMENT: "Matched: awaiting your contribution",
   WAITING_FOR_PAYOUT: "Waiting for a payout",
-  MATCHED_AS_PAYEE: "Matched — you'll receive a payout soon",
+  MATCHED_AS_PAYEE: "Matched: you'll receive a payout soon",
   COMPLETED: "Completed",
   CANCELLED: "Cancelled",
-  ADMIN_HOLD: "On hold — contact support",
+  ADMIN_HOLD: "On hold: contact support",
 };
 
 export function describeQueueEntryStatus(status: QueueEntryStatus): string {
@@ -29,14 +29,14 @@ export function describeQueueEntryStatus(status: QueueEntryStatus): string {
 
 const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
   AWAITING_PAYER_PROOF: "Awaiting proof of payment",
-  PROOF_SUBMITTED: "Proof submitted — awaiting confirmation",
-  PRINCIPAL_RECEIVED: "Contribution received — payout processing",
+  PROOF_SUBMITTED: "Proof submitted: awaiting confirmation",
+  PRINCIPAL_RECEIVED: "Contribution received: payout processing",
   PENDING_DISBURSEMENT: "Payout processing",
-  DISBURSED: "Payout sent — awaiting your confirmation",
+  DISBURSED: "Payout sent: awaiting your confirmation",
   CONFIRMED: "Confirmed",
   DISPUTED: "Under review",
-  ADMIN_RESOLVED_CONFIRMED: "Resolved — confirmed",
-  ADMIN_RESOLVED_REJECTED: "Resolved — voided",
+  ADMIN_RESOLVED_CONFIRMED: "Resolved: confirmed",
+  ADMIN_RESOLVED_REJECTED: "Resolved: voided",
   CANCELLED: "Cancelled",
 };
 
@@ -45,8 +45,8 @@ export function describeTransactionStatus(status: TransactionStatus): string {
 }
 
 const REFERRED_USER_STATUS_LABELS: Record<ReferredUserStatus, string> = {
-  SIGNED_UP: "Signed up — bonus triggers on their first contribution cycle",
-  BONUS_HELD: "Bonus earned — on hold",
+  SIGNED_UP: "Signed up: bonus triggers on their first contribution cycle",
+  BONUS_HELD: "Bonus earned: on hold",
   BONUS_ELIGIBLE: "Bonus ready to withdraw",
   BONUS_WITHDRAWN: "Bonus paid",
   BONUS_FORFEITED: "Bonus forfeited",
@@ -69,7 +69,7 @@ export function describeReferralBonusStatus(status: ReferralBonusStatus): string
 
 const WITHDRAWAL_REQUEST_STATUS_LABELS: Record<WithdrawalRequestStatus, string> = {
   PENDING: "Pending review",
-  APPROVED: "Approved — payment processing",
+  APPROVED: "Approved: payment processing",
   REJECTED: "Rejected",
   PAID: "Paid",
 };

@@ -151,7 +151,7 @@ export default function AdminSupportPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Support</h1>
         <p className="mt-1 text-sm text-muted">
-          Every member&apos;s conversation with support, most recent first — {total} total.
+          Every member&apos;s conversation with support, most recent first · {total} total.
         </p>
       </div>
 

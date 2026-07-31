@@ -41,7 +41,7 @@ export default function AdminFraudFlagsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Fraud Flags</h1>
         <p className="mt-1 text-sm text-muted">
-          Heuristic signals, not proof — these direct human review, they never auto-block anyone.
+          Heuristic signals, not proof: these direct human review, they never auto-block anyone.
         </p>
       </div>
 
@@ -57,7 +57,7 @@ export default function AdminFraudFlagsPage() {
             <section className="flex flex-col gap-3">
               <h2 className="text-lg font-semibold text-foreground">Shared payout accounts</h2>
               <p className="text-sm text-muted">
-                Multiple distinct accounts pointing payouts at the same bank account number — a strong
+                Multiple distinct accounts pointing payouts at the same bank account number, a strong
                 self-referral signal.
               </p>
               {flags.sharedBankDetails.map((flag) => (

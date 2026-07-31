@@ -64,7 +64,7 @@ export default function DashboardQueuePage() {
     try {
       await loadEntry();
       if (statusBeforeCheck === "WAITING_FOR_PAYOUT") {
-        setCheckMessage("Still waiting — you'll be matched as soon as it's your turn.");
+        setCheckMessage("Still waiting. You'll be matched as soon as it's your turn.");
       }
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Couldn't check your status. Please try again.");
@@ -121,7 +121,7 @@ export default function DashboardQueuePage() {
             <div className="mt-6 flex flex-col gap-3">
               <div className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-foreground">
                 {entry.payersConfirmedCount > 0
-                  ? `You've received ${entry.payersConfirmedCount} of ${entry.payersRequired} payments — you're in line for your next match.`
+                  ? `You've received ${entry.payersConfirmedCount} of ${entry.payersRequired} payments. You're in line for your next match.`
                   : "You're in line to be matched"}
               </div>
               <Button
@@ -156,7 +156,7 @@ function EmptyState() {
         <Link href="/dashboard/levels" className="font-medium text-primary underline underline-offset-4">
           Provide Help
         </Link>{" "}
-        to join a level — you&apos;ll show up here once it&apos;s your turn to get paid.
+        to join a level. You&apos;ll show up here once it&apos;s your turn to get paid.
       </p>
     </div>
   );

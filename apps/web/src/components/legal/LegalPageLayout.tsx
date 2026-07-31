@@ -22,8 +22,8 @@ export function LegalPageLayout({
 
           <div className="mt-6 rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm text-foreground">
             <strong>Draft for pre-launch review.</strong> This document describes how APEX PAY is designed to
-            operate. It is not legal advice, and it must be reviewed by qualified Nigerian legal counsel —
-            including for CBN payment-service and NDPA data-protection compliance — before any real user funds
+            operate. It is not legal advice, and it must be reviewed by qualified Nigerian legal counsel,
+            including for CBN payment-service and NDPA data-protection compliance, before any real user funds
             are accepted.
           </div>
 

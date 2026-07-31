@@ -54,7 +54,7 @@ export class SesEmailProvider implements EmailProvider {
         `AWS SES failed to send OTP email: ${err instanceof Error ? err.message : String(err)}`,
       );
       throw new Error(
-        'Failed to send verification email — please try again shortly.',
+        'Failed to send verification email. Please try again shortly.',
       );
     }
   }

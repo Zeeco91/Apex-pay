@@ -40,7 +40,7 @@ export default function AdminQueueHealthPage() {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Queue Health</h1>
         <p className="mt-1 text-sm text-muted">
           Wait times and stalled entries per level. A stalled entry has waited longer than that
-          level&apos;s configured threshold with no match — a candidate for manual matching.
+          level&apos;s configured threshold with no match, a candidate for manual matching.
         </p>
       </div>
 

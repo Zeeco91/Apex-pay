@@ -120,7 +120,7 @@ export class MfaService {
       });
     } catch {
       throw new UnauthorizedException(
-        'MFA session expired — please log in again.',
+        'MFA session expired. Please log in again.',
       );
     }
     if (payload.purpose !== MFA_PENDING_PURPOSE) {

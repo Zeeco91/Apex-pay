@@ -45,7 +45,7 @@ export default function AdminLevelsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Levels</h1>
         <p className="mt-1 text-sm text-muted">
-          Changes apply to new queue joins and future disbursements only — they never retroactively change
+          Changes apply to new queue joins and future disbursements only. They never retroactively change
           transactions already in flight.
         </p>
       </div>

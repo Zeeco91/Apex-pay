@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 
 export const metadata: Metadata = {
-  title: "Dashboard — APEX PAY",
+  title: "Dashboard · APEX PAY",
   robots: { index: false, follow: false },
 };
 

@@ -133,7 +133,7 @@ export class AuthService {
     if (!user) throw invalidCredentials();
     if (user.status === 'BANNED' || user.status === 'SUSPENDED') {
       throw new UnauthorizedException(
-        'This account is not active — contact support',
+        'This account is not active. Contact support',
       );
     }
     if (this.usersService.isPinLocked(user)) {

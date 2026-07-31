@@ -41,7 +41,7 @@ export class ResendEmailProvider implements EmailProvider {
         `Resend API returned ${response.status} while sending OTP email: ${body}`,
       );
       throw new Error(
-        'Failed to send verification email — please try again shortly.',
+        'Failed to send verification email. Please try again shortly.',
       );
     }
   }

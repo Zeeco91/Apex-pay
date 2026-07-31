@@ -65,7 +65,7 @@ export default function AdminReconciliationPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Treasury Reconciliation</h1>
           <p className="mt-1 text-sm text-muted">
             Recomputes each balance from its ledger history and compares it against the running counter.
-            A healthy system always shows zero drift — every ledger write updates its counter atomically,
+            A healthy system always shows zero drift: every ledger write updates its counter atomically,
             so nonzero drift means something outside that path touched the data.
           </p>
         </div>
@@ -114,7 +114,7 @@ export default function AdminReconciliationPage() {
       {isLoading ? (
         <p className="text-sm text-muted">Loading run history…</p>
       ) : runs.length === 0 ? (
-        <p className="text-sm text-muted">No reconciliation runs yet — the first scheduled run happens at midnight, or click &quot;Run now&quot;.</p>
+        <p className="text-sm text-muted">No reconciliation runs yet. The first scheduled run happens at midnight, or click &quot;Run now&quot;.</p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-background">
           <table className="w-full text-left text-sm">

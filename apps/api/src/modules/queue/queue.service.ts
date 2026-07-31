@@ -118,7 +118,7 @@ export class QueueService {
         });
         if (existing) {
           throw new ConflictException(
-            `You already have an active entry in ${existing.level.name} — finish or cancel it before joining another level.`,
+            `You already have an active entry in ${existing.level.name}. Finish or cancel it before joining another level.`,
           );
         }
 
@@ -213,7 +213,7 @@ export class QueueService {
         error.code === UNIQUE_CONSTRAINT_VIOLATION_CODE
       ) {
         throw new ConflictException(
-          'You already have an active queue entry — finish or cancel it before joining another level.',
+          'You already have an active queue entry. Finish or cancel it before joining another level.',
         );
       }
       throw error;
@@ -259,7 +259,7 @@ export class QueueService {
 
         if (!transaction || transaction.status !== 'AWAITING_PAYER_PROOF') {
           throw new ConflictException(
-            "Can't cancel — proof of payment has already been submitted for this entry.",
+            "Can't cancel: proof of payment has already been submitted for this entry.",
           );
         }
 
@@ -715,7 +715,7 @@ export class QueueService {
         entry.status !== 'MATCHED_AS_PAYEE'
       ) {
         throw new ConflictException(
-          `Can't cancel — this entry is ${describeStatusForAdmin(entry.status)}.`,
+          `Can't cancel: this entry is ${describeStatusForAdmin(entry.status)}.`,
         );
       }
 
@@ -787,7 +787,7 @@ export class QueueService {
         entry.status === 'ADMIN_HOLD'
       ) {
         throw new ConflictException(
-          `Can't hold — this entry is ${describeStatusForAdmin(entry.status)}.`,
+          `Can't hold: this entry is ${describeStatusForAdmin(entry.status)}.`,
         );
       }
 
@@ -903,9 +903,9 @@ function describeStatusForAdmin(status: string): string {
 function describeUncancellable(status: QueueEntryStatus): string {
   switch (status) {
     case 'MATCHED_AS_PAYEE':
-      return "You're currently matched to receive a payout and can't cancel from here — contact support if you need help.";
+      return "You're currently matched to receive a payout and can't cancel from here. Contact support if you need help.";
     case 'ADMIN_HOLD':
-      return 'This queue entry is on hold — contact support.';
+      return 'This queue entry is on hold. Contact support.';
     case 'COMPLETED':
       return 'This queue entry has already been completed.';
     case 'CANCELLED':
@@ -931,13 +931,13 @@ function buildQueueStatsMessage(
     return `You're #${position} in line. ${waitingCount} ${memberWord} waiting in this level right now.`;
   }
   if (entryStatus === 'PENDING_JOIN_PAYMENT') {
-    return "You've been matched with a member ahead of you — complete your contribution to keep your place.";
+    return "You've been matched with a member ahead of you. Complete your contribution to keep your place.";
   }
   if (entryStatus === 'MATCHED_AS_PAYEE') {
     return `You're matched to receive payment ${payersConfirmedCount + 1} of ${payersRequired} once it's confirmed.`;
   }
   if (waitingCount === 0) {
-    return "No one is waiting yet in this level — you'd be the first in the queue.";
+    return "No one is waiting yet in this level. You'd be the first in the queue.";
   }
   return `${waitingCount} ${memberWord} currently waiting for a payout in this level.`;
 }

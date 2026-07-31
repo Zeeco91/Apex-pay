@@ -86,7 +86,7 @@ export default function PayoutDetailsPage() {
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted">
-            This is the account we&apos;ll disburse your payout to. Double-check it — an incorrect
+            This is the account we&apos;ll disburse your payout to. Double-check it. An incorrect
             account number can delay your payout.
           </p>
         </div>

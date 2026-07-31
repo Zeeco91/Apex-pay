@@ -200,7 +200,7 @@ export class AuthController {
   private getRefreshCookie(req: Request): string {
     const token = req.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
     if (!token) {
-      throw new UnauthorizedException('No session found — please log in again');
+      throw new UnauthorizedException('No session found. Please log in again');
     }
     return token;
   }

@@ -141,7 +141,7 @@ export default function AdminMfaSetupPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Set up multi-factor authentication</h1>
         <p className="mt-2 text-sm text-muted">
-          Required for every admin account — disbursement and matching actions move real money, and MFA is a
+          Required for every admin account: disbursement and matching actions move real money, and MFA is a
           compensating control against a stolen password or session alone being enough to reach them.
         </p>
       </div>

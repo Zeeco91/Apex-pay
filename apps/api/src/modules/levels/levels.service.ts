@@ -77,7 +77,7 @@ export class LevelsService {
       merged.platformRevenuePercentOfFee;
     if (Math.abs(percentSum - 100) > PERCENT_SUM_TOLERANCE) {
       throw new ConflictException(
-        `The referral, incentive, and platform-revenue allocation percentages must sum to 100 — they currently sum to ${percentSum}.`,
+        `The referral, incentive, and platform-revenue allocation percentages must sum to 100. They currently sum to ${percentSum}.`,
       );
     }
 

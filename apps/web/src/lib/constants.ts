@@ -64,18 +64,18 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: "faq-is-investment",
     question: "Is APEX PAY an investment?",
     answer:
-      "APEX PAY is a contribution-based savings queue — you get your investment back plus a return, but there's no fixed or guaranteed rate of return like a traditional investment product would offer. What you get back is your full contribution plus a return.",
+      "APEX PAY is a contribution-based savings queue. You get your investment back plus a return, but there's no fixed or guaranteed rate of return like a traditional investment product would offer. What you get back is your full contribution plus a return.",
   },
   {
     id: "faq-payout-timing",
     question: "How long will I wait to be paid out?",
     answer:
-      "Payout timing depends on new members joining your level's queue behind you. We show an honest, real-time estimate in your dashboard, but it is not a fixed guarantee — it can move faster or slower depending on how quickly a level fills. We'd rather show you real numbers than optimistic ones.",
+      "Payout timing depends on new members joining your level's queue behind you. We show an honest, real-time estimate in your dashboard, but it is not a fixed guarantee. It can move faster or slower depending on how quickly a level fills. We'd rather show you real numbers than optimistic ones.",
   },
   {
     id: "faq-referral-program",
     question: "How does the referral program work?",
     answer:
-      "Four steps: (1) Share your unique referral code from your dashboard. (2) Your bonus is only triggered once your referral's first contribution cycle is confirmed complete — not just at sign-up. (3) That bonus is funded entirely out of APEX PAY's own fee revenue, never taken from another member's contribution. (4) Bonuses are held for 30 working days before becoming withdrawable, a standard anti-fraud safeguard.",
+      "Four steps: (1) Share your unique referral code from your dashboard. (2) Your bonus is only triggered once your referral's first contribution cycle is confirmed complete, not just at sign-up. (3) That bonus is funded entirely out of APEX PAY's own fee revenue, never taken from another member's contribution. (4) Bonuses are held for 30 working days before becoming withdrawable, a standard anti-fraud safeguard.",
   },
 ] as const;

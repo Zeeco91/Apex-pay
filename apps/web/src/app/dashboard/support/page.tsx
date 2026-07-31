@@ -88,7 +88,7 @@ export default function DashboardSupportPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Support</h1>
           {conversation?.status === "RESOLVED" && <Badge tone="success">Resolved</Badge>}
         </div>
-        <p className="mt-1 text-sm text-muted">Message our team directly — we&apos;ll reply here.</p>
+        <p className="mt-1 text-sm text-muted">Message our team directly. We&apos;ll reply here.</p>
       </div>
 
       <div className="flex h-[32rem] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-sm">

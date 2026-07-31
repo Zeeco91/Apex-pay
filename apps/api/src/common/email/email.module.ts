@@ -38,7 +38,7 @@ import type { Env } from '../../config/env.validation';
           return resendProvider;
         if (config.get('NODE_ENV', { infer: true }) === 'production') {
           throw new Error(
-            'AWS_SES_ACCESS_KEY_ID or RESEND_API_KEY must be set in production — no OTP email provider configured.',
+            'AWS_SES_ACCESS_KEY_ID or RESEND_API_KEY must be set in production: no OTP email provider configured.',
           );
         }
         return consoleProvider;

@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/Container";
 import { LoginForm } from "@/components/auth/LoginForm";
 
 export const metadata: Metadata = {
-  title: "Log In — APEX PAY",
+  title: "Log In · APEX PAY",
   description: "Log in to your APEX PAY account with your phone number and PIN.",
 };
 

@@ -26,7 +26,7 @@ export function ReasonActionButton({
   reasonLabel = "Reason",
   confirmLabel = "Confirm",
   minLength = 5,
-  placeholder = "Explain why — this is recorded in the audit log",
+  placeholder = "Explain why: this is recorded in the audit log",
   onConfirm,
 }: ReasonActionButtonProps) {
   const [open, setOpen] = useState(false);

@@ -6,7 +6,7 @@ import { Container } from "@/components/ui/Container";
 import { RegisterForm } from "@/components/auth/RegisterForm";
 
 export const metadata: Metadata = {
-  title: "Register — APEX PAY",
+  title: "Register · APEX PAY",
   description: "Create your APEX PAY account with your phone number to join a savings level.",
 };
 
