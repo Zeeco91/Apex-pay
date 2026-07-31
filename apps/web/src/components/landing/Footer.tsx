@@ -59,8 +59,7 @@ export function Footer() {
           <p>© {year} {SITE_NAME}. All rights reserved.</p>
           <p className="max-w-xl">
             APEX PAY is a peer-funded savings queue, not a bank, and not an
-            investment or securities product. Payout timing is estimated, not
-            guaranteed.
+            investment or securities product. Payout timing is estimated.
           </p>
         </div>
       </Container>
